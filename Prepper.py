@@ -212,9 +212,9 @@ def main():
 
     calc_T = True
     calc_SNR = True
-    SNR_name = 'SNR_evaluation_v1'
-    T_name = 'Transmission_v1'
-    list_exclude = ['160_kV', '165_kV', '170_kV']
+    SNR_name = ''
+    T_name = ''
+    list_exclude = []
 
     prep_data = Prepper(img_shape, header, path=base_path, watt=watt, t_exp=exposure_time, slice_l=slice_left,
                         slice_r=slice_right, magnification=magnification, detector_pixel=detector_pixel,
