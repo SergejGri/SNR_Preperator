@@ -27,7 +27,17 @@ class Prepper:
         :param magnification: adjusted magnification for the measurement
         :param detector_pixel: pixel size of the detector
         :param pixel_size_units: a string which should be passed in latex form $\mu m$ for micrometers etc.
-        :param filter_mat: a list of used
+        :param filter_mat: a list of used filter material 
+        wedge there are 4 areas containing 2 steps area1: [4mm,8mm], area2:[12,16]...
+        :param smallest_size: if smallest size is passed, the maximal value of the u-axis will be set to the passed 
+        value
+        :param exclude: expects a list of kV-folders which the user want to avoid. IF no list ist passed, the class will 
+        evaluate all voltage folders in the base_path
+        :param mode_SNR: default value True. If set the False, only transmission (as long as mode_T=True) will be 
+        evaluated
+        :param mode_T: default value True. Same behavior as mode_SNR
+        :param SNR_result_name: your desired name for SNR results
+        :param T_result_name: your desired name for SNR results 
         """
         self.watt = watt
         self.img_shape = img_shape
