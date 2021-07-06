@@ -215,7 +215,7 @@ def main():
     base_path_T = r'.'
     
     # TODO: implement more robust detection of voltages/thicknesses independent on style of passed strings
-    #  '160kV == '160_kV' == '160' == '160kv'... // '6mm' == '6_mm' ...
+    # '160kV == '160_kV' == '160' == '160kv'... // '6mm' == '6_mm' ...
     kV_filter = ['40_kV', '160_kV']
     d_filter = ['6', '16']
 
