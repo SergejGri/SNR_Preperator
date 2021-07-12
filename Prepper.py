@@ -1,16 +1,15 @@
 import os
-import time
-import file
 import numpy as np
+import file
 from evaluation.SNR_spectra import ImageSeriesPixelArtifactFilterer, SNR_Evaluator
 
 
-class Prepper:
+class SNRCalculator:
     def __init__(self, img_shape: tuple, header: int, path, slice_l: tuple = None, slice_r: tuple = None,
                  watt: float = None, t_exp: float = None, magnification: float = None, detector_pixel: float = None,
-                 pixel_size_units=None, filter_mat: list = None, d_pattern: list = None, smallest_size: float = None,
-                 exclude: list = None, areas: list = None, mode_SNR: bool = True, mode_T: bool = True,
-                 SNR_result_name=None, T_result_name=None):
+                 pixel_size_units=None, filter_mat: list = None, smallest_size: float = None, nbins: int = None,
+                 exclude: list = None, mode_SNR: bool = True, mode_T: bool = True, SNR_result_name=None,
+                 T_result_name=None):
         """
         see __init__() for the individual types of expected imputs of parameters
         :param img_shape: (image height, image width) in pixels
@@ -27,18 +26,22 @@ class Prepper:
         :param magnification: adjusted magnification for the measurement
         :param detector_pixel: pixel size of the detector
         :param pixel_size_units: a string which should be passed in latex form $\mu m$ for micrometers etc.
-        :param filter_mat: a list of used filter material 
+        :param filter_mat: a list of used filter material
         wedge there are 4 areas containing 2 steps area1: [4mm,8mm], area2:[12,16]...
-        :param smallest_size: if smallest size is passed, the maximal value of the u-axis will be set to the passed 
+        :param smallest_size: if smallest size is passed, the maximal value of the u-axis will be set to the passed
         value
-        :param exclude: expects a list of kV-folders which the user want to avoid. IF no list ist passed, the class will 
+        :param exclude: expects a list of kV-folders which the user want to avoid. IF no list ist passed, the class will
         evaluate all voltage folders in the base_path
-        :param mode_SNR: default value True. If set the False, only transmission (as long as mode_T=True) will be 
+        :param mode_SNR: default value True. If set the False, only transmission (as long as mode_T=True) will be
         evaluated
         :param mode_T: default value True. Same behavior as mode_SNR
         :param SNR_result_name: your desired name for SNR results
-        :param T_result_name: your desired name for SNR results 
+        :param T_result_name: your desired name for SNR results
         """
+        if nbins is not None:
+            self.nbins = nbins
+        else:
+            self.nbins = 'auto'
         self.watt = watt
         self.img_shape = img_shape
         self.header = header
@@ -54,10 +57,9 @@ class Prepper:
         self.filter_mat = filter_mat
         if len(self.filter_mat) < 2:
             self.filter_mat = filter_mat[0]
-        self.d_pattern = d_pattern
 
         self.base_path = path
-        self.result_path = r'.'
+        self.result_path = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR'
         if slice_l is None:
             self.slice_l = slice(0, 100), slice(50, 1450), slice(92, 859)
         self.slice_l = slice_l
@@ -68,18 +70,19 @@ class Prepper:
         self.px_map_r = self.slice_r[1], self.slice_r[2]
         self.x_min = smallest_size
         self.exclude = exclude
-        self.areas = areas
         self.mode_SNR = mode_SNR
         self.mode_T = mode_T
         self.SNR_name = SNR_result_name
         self.T_name = T_result_name
-        self.px_map = r'.'
+        self.px_map = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\BAD-PIXEL-bin1x1-scans-MetRIC.tif'
 
     def __call__(self, dir, d, area, d_l, d_r):
         self.from_raw_to_snr(dir, d, area, d_l, d_r)
 
     def from_raw_to_snr(self, dir, d, area, d_l, d_r):
-        print(f'Working on {dir}')
+        print(f'Working on: \n'
+              f'dir: {dir} \n'
+              f'd: {d}')
         results = []
 
         SNR_eval = SNR_Evaluator()
@@ -105,6 +108,7 @@ class Prepper:
                               pixelsize=self.pixel_size,
                               pixelsize_units=self.pixel_size_units,
                               series_filterer=filterer_l,
+                              u_nbins=self.nbins,
                               save_path=os.path.join(res_path_snr,
                                                      f'SNR_{voltage}kV_{d_l}_mm_{self.t_exp}ms'))
         figure = SNR_eval.plot(figure, f'{d_l} mm')
@@ -123,6 +127,7 @@ class Prepper:
                               pixelsize=self.pixel_size,
                               pixelsize_units=self.pixel_size_units,
                               series_filterer=filterer_r,
+                              u_nbins=self.nbins,
                               save_path=os.path.join(res_path_snr,
                                                      f'SNR_{voltage}kV_{d_r}_mm_{self.t_exp}ms'))
         figure = SNR_eval.plot(figure, f'{d_r} mm')
@@ -198,64 +203,16 @@ class Prepper:
             f_l.close()
             f_r.close()
 
-
-
-def main():
-    start = time.time()
-
-    base_path = r'.'
-    bad_pixel_map = r'.'
-    watt = 4.5
-    filter_materials = ['Al']
-    thickness_pattern = ['_0mm Al_', '_1mm Al_', '_2mm Al_']
-    areas = ['_1-area_', '_2-area_', '_3-area_', '_4-area_']
-    img_shape = (1536, 1944)
-    header = 2048
-
-    slice_left = slice(0, 100), slice(50, 1450), slice(92, 859)
-    slice_right = slice(0, 100), slice(50, 1450), slice(1076, 1843)
-    exposure_time = 1200
-    magnification = 21.2781
-    detector_pixel = 74.8
-    pixel_size_units = '$\mu m$'
-    smallest_size = None
-
-    calc_T = True
-    calc_SNR = True
-    SNR_name = ''
-    T_name = ''
-    list_exclude = []
-
-    prep_data = Prepper(img_shape, header, path=base_path, watt=watt, t_exp=exposure_time, slice_l=slice_left,
-                        slice_r=slice_right, magnification=magnification, detector_pixel=detector_pixel,
-                        exclude=list_exclude, smallest_size=smallest_size, pixel_size_units=pixel_size_units,
-                        filter_mat=filter_materials, areas=areas, mode_SNR=calc_SNR, mode_T=calc_T,
-                        SNR_result_name=SNR_name, T_result_name=T_name)
-
-    dirs = prep_data.get_dirs()
-    for dir in dirs:
-        for d in range(len(thickness_pattern)):
-            d_l, d_r = actual_d(thickness_pattern[d])
-            for area in range(len(areas)):
-                prep_data(dir, thickness_pattern[d], areas[area], d_l[area], d_r[area])
-
-    print(f'Time: {(time.time() - start) / (60 * 60)} h')
-
-
-def actual_d(pattern):
-    if pattern == '_0mm Al_':
-        list_left_0mm = ['4', '12', '20', '28']
-        list_right_0mm = ['8', '16', '24', '32']
-        return list_left_0mm, list_right_0mm
-    if pattern == '_1mm Al_':
-        list_left_1mm = ['5', '13', '21', '29']
-        list_right_1mm = ['9', '17', '25', '33']
-        return list_left_1mm, list_right_1mm
-    if pattern == '_2mm Al_':
-        list_left_2mm = ['6', '14', '22', '30']
-        list_right_2mm = ['10', '18', '26', '34']
-        return list_left_2mm, list_right_2mm
-
-
-if __name__ == '__main__':
-    main()
+    def actual_d(self, pattern):
+        if pattern == '_0mm Al_':
+            list_left_0mm = ['4', '12', '20', '28']
+            list_right_0mm = ['8', '16', '24', '32']
+            return list_left_0mm, list_right_0mm
+        if pattern == '_1mm Al_':
+            list_left_1mm = ['5', '13', '21', '29']
+            list_right_1mm = ['9', '17', '25', '33']
+            return list_left_1mm, list_right_1mm
+        if pattern == '_2mm Al_':
+            list_left_2mm = ['6', '14', '22', '30']
+            list_right_2mm = ['10', '18', '26', '34']
+            return list_left_2mm, list_right_2mm
