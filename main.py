@@ -1,7 +1,6 @@
 import SNRMapGenerator as snrg
 
 
-
 def get_d():
     thick_0 = [4, 8, 12, 16, 20, 24, 28, 32]
     thick_1 = [5, 9, 13, 17, 21, 25, 29, 33]
@@ -17,7 +16,7 @@ def main():
 
     # TODO: implement more robust detection of voltages/thicknesses independent on style of passed strings
     # '160kV == '160_kV' == '160' == '160kv'... // '6mm' == '6_mm' ...
-    kV_filter = ['40_kV', '160_kV']
+    kV_filter = ['40_kV']
     d_filter = ['6', '16']
 
     thicknesses = get_d()
