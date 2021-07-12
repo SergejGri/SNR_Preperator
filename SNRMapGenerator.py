@@ -142,44 +142,6 @@ def plot(path_map, excl_filter=None):
             plt.savefig(os.path.join(os.path.join(path_map, 'Plots'), f'SNR_T_{filename}mm_{max_kv}maxkV.png'))
 
 
-def plot_SNR_V(path):
-    plt.figure(figsize=(14.4, 8.8))
-    for file in os.listdir(path):
-        if file.endswith('.csv'):
-            d = os.path.basename(file)
-            d = d.split('m')[0]
-            data = np.loadtxt(os.path.join(path, file), delimiter=',')
-            data_x = data[:, 0]
-            data_y = data[:, 2]
-            plt.plot(data_x, data_y, label=f'{d} mm', marker='o')
-            plt.legend()
-            #plt.ylim(0, 0.0025)
-            plt.xlabel('U [kV]')
-            plt.ylabel('SNR')
-    plt.tight_layout()
-    plt.savefig(os.path.join(path, 'SNR_V.png'))
-    plt.show()
-
-
-def plot_T_V(path):
-    plt.figure(figsize=(14.4, 8.8))
-    for file in os.listdir(path):
-        if file.endswith('.csv'):
-            d = os.path.basename(file)
-            d = d.split('m')[0]
-            data = np.loadtxt(os.path.join(path, file), delimiter=',')
-            data_x = data[:, 0]
-            data_y = data[:, 1]
-            plt.plot(data_x, data_y, label=f'{d} mm', marker='o')
-            plt.legend()
-            plt.xlabel('U [kV]')
-            plt.ylabel('T')
-    plt.tight_layout()
-
-    plt.savefig(os.path.join(path, 'T_V.png'))
-    plt.show()
-
-
 def write_data(path_T, path_SNR, path_fin):
     now = time.strftime('%c')
     if not os.path.exists(os.path.join(path_fin, 'Plots')):
@@ -197,16 +159,6 @@ def get_d():
     thick_2 = [6, 10, 14, 18, 22, 26, 30, 34]
     thicknesses = [thick_0, thick_1, thick_2]
     return thicknesses
-
-
-'''def evaluate_data(path_snr, path_T, path_fin, max_kV = None, exclude_filter=None):
-    raw_d_curves = []
-    thicknesses = get_d()
-    for i in range(len(thicknesses)):
-        for j in range(len(thicknesses[0])):
-            curve_reader = SNRMapGenerator(path_snr, path_T, path_fin, thicknesses[i][j], max_kV, exclude_filter)
-            raw_d_curves.append(thicknesses[i][j])
-            raw_d_curves.append(curve_reader.d_curve)'''
 
 
 def main():

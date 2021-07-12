@@ -1,7 +1,7 @@
 import os
 import numpy as np
-import file
-from evaluation.SNR_spectra import ImageSeriesPixelArtifactFilterer, SNR_Evaluator
+from externe_files import file
+from externe_files.SNR_spectra import SNR_Evaluator, ImageSeriesPixelArtifactFilterer
 
 
 class SNRCalculator:
