@@ -32,11 +32,13 @@ class SNRMapGenerator:
         self.idx = None
         self.data_SNR = None
         self.d_curve = None
+        self.list_kV = []
+        self.list_SNR = []
 
     def __call__(self, *args, **kwargs):
         self._collect_data()
-        self._get_T_data()
-        self._get_SNR_data()
+        self.get_T_data()
+        self.get_SNR_data()
         self.merge_data()
         self.write_data()
 
@@ -58,7 +60,7 @@ class SNRMapGenerator:
         pass
         #return key_word
 
-    def _get_T_data(self):
+    def get_T_data(self):
         data_T = np.genfromtxt(os.path.join(self.path_T, f'{self.d_mm}.csv'), delimiter=';')
         data_T = data_T[data_T[:, 0].argsort()]
         self.data_T.append(data_T[:, 0])
@@ -69,16 +71,16 @@ class SNRMapGenerator:
                 val = float(v.split('_')[0])
                 self.data_T = self.data_T[self.data_T[:, 0] != val]
 
-    def _get_SNR_data(self):
+    def get_SNR_data(self):
         list_tot = []
         for file in self.txt_files:
-            self.calc_data(file)
+            self._calc_data(file)
         list_tot.append(self.list_kV)
         list_tot.append(self.list_SNR)
         arr = np.asarray(list_tot).T
         self.data_SNR = arr[arr[:, 0].argsort()]
 
-    def calc_data(self, file):
+    def _calc_data(self, file):
         l_bound = 150.0
         u_bound = 250.0
         filename, self.str_kV, self.int_kV = self.get_properties(file)
@@ -92,7 +94,7 @@ class SNRMapGenerator:
         self.list_kV.append(self.int_kV)
         self.list_SNR.append(self.mean_SNR)
 
-    def merge_data(self):
+    def _merge_data(self):
         self.d_curve = np.hstack((self.data_T, self.data_SNR))
         self.d_curve = np.delete(self.d_curve, 2, axis=1)
         self.d_curve.astype(float)
@@ -104,18 +106,45 @@ class SNRMapGenerator:
 
     @staticmethod
     def get_properties(file):
-        filename = os.path.basename(file)
-        str_kV = filename.split('_')[1]
-        int_kV = int(str_kV.split('k')[0])
-        return filename, str_kV, int_kV
-    
+        str_kV = None
+        int_kV = None
+        int_filename = None
+        filename = os.path.splitext(file)[0]
+        try:
+            int_filename = int(filename.split('_')[0])
+            str_kV = filename.split('_')[1]
+            int_kV = int(str_kV.split('k')[0])
+        except ValueError:
+            pass
+        return filename, int_filename, str_kV, int_kV
+
+
+class Activator:
+    def __init__(self, path_base: str):
+        self.path_base = path_base
+        self.curves = {}
+        #self.d = d
+        #self.d_mm = f'{self.d} mm'
+        self.read_files()
+
+    def read_files(self):
+        for file in os.listdir(self.path_base):
+            if os.path.isfile(os.path.join(self.path_base, file)) and file.endswith('.csv'):
+                filename, int_filename, _, _ = SNRMapGenerator.get_properties(file)
+                curve = np.genfromtxt(os.path.join(self.path_base, f'{filename}.csv'), delimiter=',')
+                if int_filename is not None:
+                    self.curves[f'{int_filename}'] = curve
+                else:
+                    self.curves[f'{filename}'] = curve
+
+
+
 
 # TODO: implement more robust curve- / thickness-chose-mechanism
 def plot(path_map, excl_filter=None):
     if not os.path.exists(os.path.join(path_map, 'Plots')):
         os.mkdir(os.path.join(path_map, 'Plots'))
     for file in os.listdir(path_map):
-        #if excl_filter is not None:
         if file.endswith('.csv') and not file.split('.')[0] in excl_filter:
             filename = file.split('m')[0]
             data = np.genfromtxt(os.path.join(path_map, file), delimiter=',')
@@ -131,6 +160,8 @@ def plot(path_map, excl_filter=None):
             plt.savefig(os.path.join(os.path.join(path_map, 'Plots'), f'SNR_T_{filename}mm_{max_kv}maxkV.png'))
 
 
+
+
 def write_data(path_T, path_SNR, path_fin):
     now = time.strftime('%c')
     if not os.path.exists(os.path.join(path_fin, 'Plots')):
@@ -140,4 +171,3 @@ def write_data(path_T, path_SNR, path_fin):
         f.write(f'used transmission data: {path_T}\n')
         f.write(f'used SNR data: {path_SNR}\n')
         f.close()
-
