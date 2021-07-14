@@ -1,6 +1,4 @@
-import Prepper as prep
-import SNRMapGenerator as snrg
-from externe_files import file
+
 
 def get_d():
     thick_0 = [4, 8, 12, 16, 20, 24, 28, 32]
@@ -64,7 +62,8 @@ def plot(curves):
 '''
 
 def main():
-    generator = SN
+    print('test')
+    abc = SNR_Ca
 
 
 if __name__ == '__main__':
