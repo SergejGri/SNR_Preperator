@@ -1,4 +1,5 @@
-
+import externe_files
+import SNR_Calculator
 
 def get_d():
     thick_0 = [4, 8, 12, 16, 20, 24, 28, 32]
@@ -63,7 +64,7 @@ def plot(curves):
 
 def main():
     print('test')
-    abc = SNR_Ca
+
 
 
 if __name__ == '__main__':
