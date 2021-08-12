@@ -9,9 +9,13 @@ THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND ANY EXPRE
 '''
 # Developed at the Lehrstuhl fuer Roentgenmikroskopie/Universitaet Wuerzburg, Josef-Martin-Weg 63, 97074 Wuerzburg, Germany
 
-from file.image_formats import *
-from file.info import *
-from image.cropping import *
+from externe_files.file.image_formats import *
+from externe_files.file.info import *
+from externe_files.image.cropping import *
+
+#from file.image_formats import *
+#from file.info import *
+#from image.cropping import *
 
 def load(filename, crops=((0, 0), (0, 0)), raw_shape=None, raw_header=0, raw_dtype='f4', output_dtype=None, **kwargs):
     '''

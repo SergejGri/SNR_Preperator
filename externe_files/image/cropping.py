@@ -9,7 +9,8 @@ THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND ANY EXPRE
 '''
 # Developed at the Lehrstuhl fuer Roentgenmikroskopie/Universitaet Wuerzburg, Josef-Martin-Weg 63, 97074 Wuerzburg, Germany
 import numpy as np, traceback
-import image
+from externe_files import image
+#import image
 
 
 def newaxs(keep_ax, dim):

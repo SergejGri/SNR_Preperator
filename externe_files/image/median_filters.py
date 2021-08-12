@@ -16,7 +16,7 @@ THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND ANY EXPRE
 
 #from file_access import *
 import numpy as np, os
-import common.opencl as cl
+import externe_files.common.opencl as cl
 
 
 # ======== median filter in OpenCl (ring filters and bad pixel filter) ========

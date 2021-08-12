@@ -10,9 +10,13 @@ THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND ANY EXPRE
 # Developed at the Lehrstuhl fuer Roentgenmikroskopie/Universitaet Wuerzburg, Josef-Martin-Weg 63, 97074 Wuerzburg, Germany
 import glob, gc, time, shutil, concurrent.futures as conc_fut, copy
 
-from file.image import *
-from common.settings_hash import *
-from image.resize import *
+from externe_files.file.image import *
+from externe_files.image.resize import *
+from externe_files.common.settings_hash import *
+
+#from file.image import *
+#from common.settings_hash import *
+#from image.resize import *
 
 
 # images stack access classes
@@ -20,10 +24,12 @@ class Reader():
     use_threaded_IO = 0
     modes = 'auto', 'raw', 'raw_stack'
 
-    def __init__(self, path: str, pattern: str='*', mode: str='auto', dtype='f4', return_dtype=None, shape=(0, 0, 0),
+    def __init__(self, path: str, pattern: str='*', mode: str='auto', dtype='<u2', return_dtype=None, shape=(0, 0, 0),
                  header: int=0, crops=(None, None, None), value_range=None, do_rescale: bool=False,
                  bin_factor=1, exclude_patterns: list=None, sort_name_range=(None, None), base_folder=None,
                  defer_prepare: bool=False):
+        # WARNING: default value for dtype='f4'
+
         '''
         :param path:                input path, file or folder
         :param pattern:             search pattern for folder
@@ -804,7 +810,7 @@ class Reader():
                     self.processing_filter_range += self.settings_list[plugin_index]['filter_range']
                 else:
                     #print('used numpy fallback for small fft', False if prod(image_shape) > 1e6 else True)
-                    from image.fourier import FourierFilterer
+                    from externe_files.image.fourier import FourierFilterer
                     filterer = FourierFilterer(batch=self.batch)
                     filter_calls = [(self.plugin_list[plugin_index].get_filter, self.settings_list[plugin_index]),]
                     filterer.pad_length = self.settings_list[plugin_index]['filter_range']

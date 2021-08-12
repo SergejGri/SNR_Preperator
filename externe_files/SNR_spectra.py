@@ -24,7 +24,7 @@ print(f'{__name__} version {".".join([str(v) for v in version])} ({version_date}
 
 import os, json, numpy as np
 from scipy.ndimage import median_filter, gaussian_filter
-import image, file
+from externe_files import image, file
 
 try:
     import matplotlib.pyplot as plt

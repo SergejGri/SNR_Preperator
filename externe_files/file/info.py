@@ -9,7 +9,8 @@ THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND ANY EXPRE
 '''
 # Developed at the Lehrstuhl fuer Roentgenmikroskopie/Universitaet Wuerzburg, Josef-Martin-Weg 63, 97074 Wuerzburg, Germany
 import json
-from file.path import *
+from externe_files.file.path import *
+#from file.path import *
 
 
 class ExtendedJSONEncoder(json.JSONEncoder):

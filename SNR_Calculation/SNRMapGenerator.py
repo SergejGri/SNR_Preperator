@@ -1,4 +1,5 @@
 import time
+import SNR_Calculation.curve_db as db
 import numpy as np
 import os
 import matplotlib.pyplot as plt
@@ -36,25 +37,26 @@ class SNRMapGenerator:
         self.list_SNR = []
 
     def __call__(self, *args, **kwargs):
+        self.db = db.DB(self.d)
         self._collect_data()
         self.get_T_data()
         self.get_SNR_data()
-        self.merge_data()
+        self._merge_data()
         self.write_data()
 
     # TODO: implement more robust file finding routine
     def _collect_data(self):
         for subdir in os.listdir(self.path_snr):
-            if self.kV_filter is not None:
-                if subdir not in self.kV_filter:
-                    for subsubdir in os.listdir(os.path.join(self.path_snr, subdir)):
-                        working_dir = os.path.join(os.path.join(self.path_snr, subdir, subsubdir))
-                        for file in os.listdir(working_dir):
-                            working_file = os.path.join(working_dir, file)
-                            if f'_{self.d}_mm' in working_file \
-                                    and os.path.isfile(working_file) \
-                                    and working_file.endswith('.txt'):
-                                self.txt_files.append(working_file)
+            #if self.kV_filter is not None:
+            #    if subdir not in self.kV_filter:
+            for subsubdir in os.listdir(os.path.join(self.path_snr, subdir)):
+                working_dir = os.path.join(os.path.join(self.path_snr, subdir, subsubdir))
+                for file in os.listdir(working_dir):
+                    working_file = os.path.join(working_dir, file)
+                    if f'_{self.d}_mm' in working_file \
+                            and os.path.isfile(working_file) \
+                            and working_file.endswith('.txt'):
+                        self.txt_files.append(working_file)
 
     def find_file(self, file):
         pass
@@ -83,7 +85,7 @@ class SNRMapGenerator:
     def _calc_data(self, file):
         l_bound = 150.0
         u_bound = 250.0
-        filename, self.str_kV, self.int_kV = self.get_properties(file)
+        filename, int_filename, self.str_kV, self.int_kV = self.get_properties(file)
         data = np.genfromtxt(file, skip_header=3)
         data_u = data[:, 0]
         data_x = 1 / (2 * data_u)
@@ -138,9 +140,7 @@ class Activator:
                     self.curves[f'{filename}'] = curve
 
 
-
-
-# TODO: implement more robust curve- / thickness-chose-mechanism
+# TODO: implement a robust curve- / thickness-chose-mechanism
 def plot(path_map, excl_filter=None):
     if not os.path.exists(os.path.join(path_map, 'Plots')):
         os.mkdir(os.path.join(path_map, 'Plots'))
@@ -158,8 +158,6 @@ def plot(path_map, excl_filter=None):
             plt.ylabel('SNR')
             plt.tight_layout()
             plt.savefig(os.path.join(os.path.join(path_map, 'Plots'), f'SNR_T_{filename}mm_{max_kv}maxkV.png'))
-
-
 
 
 def write_data(path_T, path_SNR, path_fin):

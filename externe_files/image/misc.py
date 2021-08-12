@@ -9,6 +9,7 @@ THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND ANY EXPRE
 '''
 # Developed at the Lehrstuhl fuer Roentgenmikroskopie/Universitaet Wuerzburg, Josef-Martin-Weg 63, 97074 Wuerzburg, Germany
 from common import *
+import numpy as np
 
 def apply_neglog(data, clip=True):
     data = data.astype("f4", copy=False)
