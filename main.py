@@ -9,9 +9,9 @@ def get_d():
 
 
 def calc_files_for_map():
-    base_path_fin = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\MAP_v1'
-    base_path_snr = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\SNR_evaluation_v2'
-    base_path_T = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\Transmission_v2'
+    base_path_fin = r''
+    base_path_snr = r''
+    base_path_T = r''
 
     # TODO: implement more robust detection of voltages/thicknesses independent on style of passed strings
     # '160kV == '160_kV' == '160' == '160kv'... // '6mm' == '6_mm' ...
@@ -36,7 +36,7 @@ def calc_files_for_map():
 
 
 def activate_map():
-    path_ = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\MAP_v1'
+    path_ = r''
     curves = SNRMapGenerator.Activator(path_base=path_)
     return curves
 
