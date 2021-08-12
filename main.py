@@ -3,8 +3,6 @@ from SNR_Calculation.Prepper import *
 from SNR_Calculation.SNRMapGenerator import *
 
 
-
-
 ''''
 def plot(curves):
     for curves['10']
@@ -78,8 +76,8 @@ def get_areas():
 
 
 def prep_data():
-    path = r'\\132.187.193.8\junk\sgrischagin\2021-06-24-Sergej_AluKeil_0-1-2mm-AluFilter'
-    res_path = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR'
+    path = r''
+    res_path = r''
     image_shape = (1536, 1944)
     header = 2048
     M = 21.2808
@@ -104,9 +102,9 @@ def prep_data():
 
 
 def calc_curves():
-    path_snr = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\newApproach_0-1-2mmAlFilter'
-    path_T = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\Transmission_v2'
-    path_fin = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\MAP_v3'
+    path_snr = r''
+    path_T = r''
+    path_fin = r''
 
     thickness = get_d()
     for i in range(len(thickness)):
