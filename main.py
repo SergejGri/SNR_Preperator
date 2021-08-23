@@ -1,29 +1,9 @@
-import os
+import datetime
+
+import SNR_Calculation.curve_db
 from SNR_Calculation.Prepper import *
 from SNR_Calculation.SNRMapGenerator import *
-
-
-''''
-def plot(curves):
-    for curves['10']
-    if not os.path.exists(os.path.join(path_map, 'Plots')):
-        os.mkdir(os.path.join(path_map, 'Plots'))
-    for file in os.listdir(path_map):
-        if file.endswith('.csv') and not file.split('.')[0] in excl_filter:
-            filename = file.split('m')[0]
-            data = np.genfromtxt(os.path.join(path_map, file), delimiter=',')
-            max_kv = data[-1][0]
-            data_x = data[:, 1]
-            data_y = data[:, 2]
-            plt.figure(figsize=(14.4, 8.8))
-            plt.plot(data_x, data_y, marker='o', label=f'{filename} mm')
-            plt.legend()
-            plt.xlabel('Transmission a.u.')
-            plt.ylabel('SNR')
-            plt.tight_layout()
-            plt.savefig(os.path.join(os.path.join(path_map, 'Plots'), f'SNR_T_{filename}mm_{max_kv}maxkV.png'))
-'''
-
+from SNR_Calculation.curve_db import *
 
 
 def create_report(_path):
@@ -34,88 +14,66 @@ def create_report(_path):
         f.close()
 
 
-def get_dirs(pathh):
-    list_dir = []
-    for dirr in os.listdir(pathh):
-        if os.path.isdir(os.path.join(pathh, dirr)) and dirr != 'darks':
-            list_dir.append(dirr)
-    return list_dir
-
-
-def get_d():
-    thick_0 = [4, 8, 12, 16, 20, 24, 28, 32]
-    thick_1 = [5, 9, 13, 17, 21, 25, 29, 33]
-    thick_2 = [6, 10, 14, 18, 22, 26, 30, 34]
-    thicknesses = [thick_0, thick_1, thick_2]
-    return thicknesses
-
-
-def current_d(pattern):
-    if pattern == '_0mm Al_':
-        list_left_0mm = ['4', '12', '20', '28']
-        list_right_0mm = ['8', '16', '24', '32']
-        return list_left_0mm, list_right_0mm
-    if pattern == '_1mm Al_':
-        list_left_1mm = ['5', '13', '21', '29']
-        list_right_1mm = ['9', '17', '25', '33']
-        return list_left_1mm, list_right_1mm
-    if pattern == '_2mm Al_':
-        list_left_2mm = ['6', '14', '22', '30']
-        list_right_2mm = ['10', '18', '26', '34']
-        return list_left_2mm, list_right_2mm
-
-
-def get_df():
-    list_df = ['_0mm Al_', '_1mm Al_', '_2mm Al_']
-    return list_df
-
-
-def get_areas():
-    list_areas = ['_1-area_', '_2-area_', '_3-area_', '_4-area_']
-    return list_areas
-
-
-def prep_data():
-    path = r''
-    res_path = r''
+def prep_data(path_base, path_result_prep):
     image_shape = (1536, 1944)
     header = 2048
-    M = 21.2808
+    M = 20.0965
+    watt = 4
+    excl = ['70kV', '80kV']
 
-    calc = SNRCalculator(img_shape=image_shape,
-                         header=header,
-                         path=path,
-                         magnification=M,
-                         t_exp=1200,
-                         res_path=res_path, mode_SNR=False)
+    calc = SNRCalculator(img_shape=image_shape, header=header, path=path_base, magnification=M, nbins=300,
+                         path_result=path_result_prep, watt=watt, exclude=excl, overwrite=False)
 
-    dirs = get_dirs(path)
-    filters = get_df()
-    areas = get_areas()
+    dirs = SNRCalculator.get_dirs(path_base, excl)
+    filters = SNRCalculator.get_df()
+
 
     for dir in dirs:
-        for f in filters:
-            for area in areas:
-                list_l, list_r = current_d(f)
-                for l, r in zip(list_l, list_r):
-                    calc(dir=dir, df=f, dl=l, dr=r, area=area)
+        for fltr in filters:
+            calc(dir=dir, df=fltr)
 
 
-def calc_curves():
-    path_snr = r''
-    path_T = r''
-    path_fin = r''
-
-    thickness = get_d()
+def calc_curves(path_snr, path_T, path_fin):
+    thickness = SNRCalculator.get_d()
     for i in range(len(thickness)):
         for j in range(len(thickness[i])):
             map = SNRMapGenerator(path_snr=path_snr, path_T=path_T, path_fin=path_fin, d=thickness[i][j])
             map()
 
 
+def write_data_to_DB():
+    path_to_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\SNR_evaluation_v6'
+    for file in os.listdir(path_to_data):
+        if file.endswith('.csv') or file.endswith('.CSV'):
+            working_file = os.path.join(path_to_data, file)
+            d = int(file.split('_mm')[0])
+            db = DB(d)
+            with open(working_file) as f:
+                content = f.readlines()
+                content = [x.strip() for x in content]
+                for _c in range(len(content)):
+                    line = content[_c]
+                    kV = float(line.split(',')[0])
+                    T = float(line.split(',')[1])
+                    SNR = float(line.split(',')[2])
+                    db.add_data(voltage=kV, T=T, SNR=SNR)
+
+
 def main():
-    prep_data()
-    calc_curves()
+    path_to_raw_data = r'\\132.187.193.8\junk\sgrischagin\2021-08-09-Sergej_SNR_Stufelkeil_40-75kV'
+    path_to_result_prep = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\SNR_evaluation_v6'
+    #prep_data(path_to_raw_data, path_to_result_prep)
+
+
+    path_snr_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\SNR_evaluation_v6\2021-8-20_SNR'
+    path_T_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\SNR_evaluation_v6\2021-8-20_T'
+    path_fin_of_T_SNR = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\SNR_evaluation_v6'
+    #calc_curves(path_snr_data, path_T_data, path_fin_of_T_SNR)
+
+
+    #write_data_to_DB(path_fin_of_T_SNR)
+    ds = [4, 5, 6, 12, 13, 14]
+    SNR_Calculation.curve_db.create_MAP(os.path.join(path_fin_of_T_SNR, 'curves'), ds)
 
 
 

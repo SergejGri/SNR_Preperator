@@ -46,17 +46,11 @@ class SNRMapGenerator:
 
     # TODO: implement more robust file finding routine
     def _collect_data(self):
-        for subdir in os.listdir(self.path_snr):
-            #if self.kV_filter is not None:
-            #    if subdir not in self.kV_filter:
-            for subsubdir in os.listdir(os.path.join(self.path_snr, subdir)):
-                working_dir = os.path.join(os.path.join(self.path_snr, subdir, subsubdir))
-                for file in os.listdir(working_dir):
-                    working_file = os.path.join(working_dir, file)
-                    if f'_{self.d}_mm' in working_file \
-                            and os.path.isfile(working_file) \
-                            and working_file.endswith('.txt'):
-                        self.txt_files.append(working_file)
+        for dir in os.listdir(self.path_snr):
+            for file in os.listdir(os.path.join(self.path_snr, dir)):
+                if f'_{self.d}_mm' in file and file.endswith('.txt'):
+                    self.txt_files.append(os.path.join(self.path_snr, dir, file))
+
 
     def find_file(self, file):
         pass
@@ -82,10 +76,11 @@ class SNRMapGenerator:
         arr = np.asarray(list_tot).T
         self.data_SNR = arr[arr[:, 0].argsort()]
 
+    # TODO: find a way to calculate the SNR between 150 and 250. At the moment just one value is used for 'mean' because no value fits the condition [150:250] naturally
     def _calc_data(self, file):
         l_bound = 150.0
         u_bound = 250.0
-        filename, int_filename, self.str_kV, self.int_kV = self.get_properties(file)
+        self.int_kV = self.get_properties(file)
         data = np.genfromtxt(file, skip_header=3)
         data_u = data[:, 0]
         data_x = 1 / (2 * data_u)
@@ -102,42 +97,23 @@ class SNRMapGenerator:
         self.d_curve.astype(float)
 
     def write_data(self):
-        if not os.path.exists(self.path_fin):
-            os.mkdir(self.path_fin)
-        np.savetxt(os.path.join(self.path_fin, f'{self.d_mm}.csv'), self.d_curve, delimiter=',', encoding='utf-8')
+        working_dir = os.path.join(self.path_fin, 'curves')
+        if not os.path.exists(working_dir):
+            os.mkdir(working_dir)
+        np.savetxt(os.path.join(working_dir,  f'{self.d_mm}.csv'), self.d_curve, delimiter=',', encoding='utf-8')
 
     @staticmethod
     def get_properties(file):
         str_kV = None
         int_kV = None
-        int_filename = None
-        filename = os.path.splitext(file)[0]
+        filename = os.path.basename(file)
         try:
-            int_filename = int(filename.split('_')[0])
-            str_kV = filename.split('_')[1]
-            int_kV = int(str_kV.split('k')[0])
+            str_kV = filename.split('kV')[0]
+            int_kV = int(str_kV.split('_')[1])
         except ValueError:
+            print('check naming convention of your passed files.')
             pass
-        return filename, int_filename, str_kV, int_kV
-
-
-class Activator:
-    def __init__(self, path_base: str):
-        self.path_base = path_base
-        self.curves = {}
-        #self.d = d
-        #self.d_mm = f'{self.d} mm'
-        self.read_files()
-
-    def read_files(self):
-        for file in os.listdir(self.path_base):
-            if os.path.isfile(os.path.join(self.path_base, file)) and file.endswith('.csv'):
-                filename, int_filename, _, _ = SNRMapGenerator.get_properties(file)
-                curve = np.genfromtxt(os.path.join(self.path_base, f'{filename}.csv'), delimiter=',')
-                if int_filename is not None:
-                    self.curves[f'{int_filename}'] = curve
-                else:
-                    self.curves[f'{filename}'] = curve
+        return int_kV
 
 
 # TODO: implement a robust curve- / thickness-chose-mechanism
