@@ -41,6 +41,48 @@ def calc_curves(path_snr, path_T, path_fin):
             map()
 
 
+def get_d():
+    thick_0 = [4, 8, 12, 16, 20, 24, 28, 32]
+    thick_1 = [5, 9, 13, 17, 21, 25, 29, 33]
+    thick_2 = [6, 10, 14, 18, 22, 26, 30, 34]
+    thicknesses = [thick_0, thick_1, thick_2]
+    return thicknesses
+
+
+def calc_files_for_map():
+    base_path_fin = r''
+    base_path_snr = r''
+    base_path_T = r''
+
+    # TODO: implement more robust detection of voltages/thicknesses independent on style of passed strings
+    # '160kV == '160_kV' == '160' == '160kv'... // '6mm' == '6_mm' ...
+    kV_filter = ['40_kV']
+    d_filter = ['6', '16']
+
+    curves = []
+
+    thicknesses = get_d()
+    for i in range(len(thicknesses)):
+        for j in range(len(thicknesses[0])):
+            _d = thicknesses[i][j]
+            if _d not in d_filter:
+                generator = snrg.SNRMapGenerator(path_snr=base_path_snr,
+                                                 path_T=base_path_T,
+                                                 path_fin=base_path_fin,
+                                                 d=_d,
+                                                 kV_filter=kV_filter)
+                generator()
+
+
+
+def activate_map():
+    path_ = r''
+    curves = SNRMapGenerator.Activator(path_base=path_)
+    return curves
+            
+            
+            
+
 def write_data_to_DB():
     path_to_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\SNR_evaluation_v6'
     for file in os.listdir(path_to_data):
