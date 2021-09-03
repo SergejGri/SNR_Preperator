@@ -1,8 +1,8 @@
 import datetime
 import os
 import gc
-import SNR_Calculation.curve_db
-import SNR_Calculation.curve_db as cdb
+import SNR_Calculation.CurveDB
+import SNR_Calculation.CurveDB as cdb
 from PIL import Image, ImageDraw
 import numpy as np
 from externe_files import file
@@ -115,8 +115,8 @@ class SNRCalculator:
         rng = (29, 99)
         results = []
 
-        imgs_dark = r'\\132.187.193.8\junk\sgrischagin\2021-08-09-Sergej_SNR_Stufelkeil_40-75kV\darks'
-        _, imgs_ref, _ = self.prepare_imgs(self.path_base, dir, df)
+
+        _, imgs_ref, imgs_dark = self.prepare_imgs(self.path_base, dir, df)
         path_save_SNR = os.path.join(self.path_result, self.SNR_name, dir)
         path_save_T = os.path.join(self.path_result, self.T_name)
         if not os.path.exists(path_save_T):
@@ -135,15 +135,15 @@ class SNRCalculator:
 
         areas = self.get_areas()
 
-        darks = file.volume.Reader(imgs_dark, mode='raw', shape=self.img_shape, header=self.header).load_range(self.stack_range)
-        refs = file.volume.Reader(imgs_ref, mode='raw', shape=self.img_shape, header=self.header).load_range(self.stack_range)
+        darks = file.volume.Reader(imgs_dark, mode='raw', shape=self.img_shape, header=self.header).load_all()
+        refs = file.volume.Reader(imgs_ref, mode='raw', shape=self.img_shape, header=self.header).load_all()
         figure = None
         for a in range(len(areas)):
             d_l, d_r = self.filter_area_to_t(df, areas[a])
 
             imgs, _, _ = self.prepare_imgs(self.path_base, dir, df, areas[a])
 
-            data = file.volume.Reader(imgs, mode='raw', shape=self.img_shape, header=self.header).load_range(self.stack_range)
+            data = file.volume.Reader(imgs, mode='raw', shape=self.img_shape, header=self.header).load_all()
 
             if self.mode_T:
                 img = (data[self.slice_l] - darks[self.slice_l]) / (refs[self.slice_l] - darks[self.slice_l])
@@ -259,11 +259,11 @@ class SNRCalculator:
         imgs = None
         ref_imgs = None
         dark_imgs = None
-        if os.path.isdir(os.path.join(path, dir)) and dir != 'darks':
-            dark_imgs = os.path.join(path, 'darks')
+        if os.path.isdir(os.path.join(path, dir)):
+            dark_imgs = os.path.join(path, dir, 'darks')
             if area is not None:
-                imgs = os.path.join(path, dir, 'imgs', df, area)
-            ref_imgs = os.path.join(path, dir, 'refs')
+                imgs = os.path.join(path, dir, '4u8', area)
+            ref_imgs = os.path.join(path, dir, '4u8', 'refs')
         return imgs, ref_imgs, dark_imgs
 
     @staticmethod

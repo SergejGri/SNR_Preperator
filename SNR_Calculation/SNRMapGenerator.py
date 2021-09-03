@@ -1,5 +1,5 @@
 import time
-import SNR_Calculation.curve_db as db
+import SNR_Calculation.CurveDB as db
 import numpy as np
 import os
 import matplotlib.pyplot as plt
@@ -9,21 +9,16 @@ class SNRMapGenerator:
     def __init__(self, path_snr: str, path_T: str, path_fin: str, d: int, kV_filter: list = None):
         self.path_snr = path_snr
         self.path_T = path_T
-        if path_fin is not None:
-            self.path_fin = path_fin
-        else:
-            now = time.localtime()
-            self.path_fin = os.path.join(os.environ['HOMEPATH'], 'Desktop',
-                                         f'SNR_Map_{now.tm_year}-{now.tm_mon}-{now.tm_mday}_'
-                                         f'{now.tm_hour}-{now.tm_min}-{now.tm_sec}')
+        self.path_fin = path_fin
 
+        self.kV_filter = kV_filter
         if kV_filter is not None:
             self.kV_filter = kV_filter
             print(f'You passed {self.kV_filter} as a kV filter.')
         else:
-            self.kV_filter = None
             print(f'\n'
                   f'No value for kV_filter was passed. All voltage folders are being included for evaluation.')
+
 
         self.mean_SNR = None
         self.d = d
@@ -37,7 +32,7 @@ class SNRMapGenerator:
         self.list_SNR = []
 
     def __call__(self, *args, **kwargs):
-        self.db = db.DB(self.d)
+        self.db = db.DB()
         self._collect_data()
         self.get_T_data()
         self.get_SNR_data()
@@ -46,10 +41,9 @@ class SNRMapGenerator:
 
     # TODO: implement more robust file finding routine
     def _collect_data(self):
-        for dir in os.listdir(self.path_snr):
-            for file in os.listdir(os.path.join(self.path_snr, dir)):
-                if f'_{self.d}_mm' in file and file.endswith('.txt'):
-                    self.txt_files.append(os.path.join(self.path_snr, dir, file))
+        for file in os.listdir(self.path_snr):
+            if f'_{self.d}_mm' in file and file.endswith('.txt'):
+                self.txt_files.append(os.path.join(self.path_snr, file))
 
 
     def find_file(self, file):
@@ -97,10 +91,9 @@ class SNRMapGenerator:
         self.d_curve.astype(float)
 
     def write_data(self):
-        working_dir = os.path.join(self.path_fin, 'curves')
-        if not os.path.exists(working_dir):
-            os.mkdir(working_dir)
-        np.savetxt(os.path.join(working_dir,  f'{self.d_mm}.csv'), self.d_curve, delimiter=',', encoding='utf-8')
+        if not os.path.exists(self.path_fin):
+            os.makedirs(self.path_fin)
+        np.savetxt(os.path.join(self.path_fin, f'{self.d_mm}.csv'), self.d_curve, delimiter=',', encoding='utf-8')
 
     @staticmethod
     def get_properties(file):
@@ -134,6 +127,9 @@ def plot(path_map, excl_filter=None):
             plt.ylabel('SNR')
             plt.tight_layout()
             plt.savefig(os.path.join(os.path.join(path_map, 'Plots'), f'SNR_T_{filename}mm_{max_kv}maxkV.png'))
+
+
+
 
 
 def write_data(path_T, path_SNR, path_fin):

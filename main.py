@@ -1,9 +1,11 @@
-import datetime
+import numpy as np
+from scipy import interpolate
 
-import SNR_Calculation.curve_db
+import Activator
+import Activator as act
 from SNR_Calculation.Prepper import *
 from SNR_Calculation.SNRMapGenerator import *
-from SNR_Calculation.curve_db import *
+from SNR_Calculation.CurveDB import *
 
 
 def create_report(_path):
@@ -34,20 +36,19 @@ def prep_data(path_base, path_result_prep):
 
 
 def calc_curves(path_snr, path_T, path_fin):
-    thickness = SNRCalculator.get_d()
+    thickness = [0, 1, 4, 5, 8, 9]
     for i in range(len(thickness)):
-        for j in range(len(thickness[i])):
-            map = SNRMapGenerator(path_snr=path_snr, path_T=path_T, path_fin=path_fin, d=thickness[i][j])
-            map()
+        map = SNRMapGenerator(path_snr=path_snr, path_T=path_T, path_fin=path_fin, d=thickness[i])
+        map()
 
 
-def write_data_to_DB():
-    path_to_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\SNR_evaluation_v6'
-    for file in os.listdir(path_to_data):
+def write_data_to_DB(path):
+    for file in os.listdir(path):
         if file.endswith('.csv') or file.endswith('.CSV'):
-            working_file = os.path.join(path_to_data, file)
+            working_file = os.path.join(path, file)
             d = int(file.split('_mm')[0])
-            db = DB(d)
+            db = DB(path_DB=path)
+            #db.read_data(d)
             with open(working_file) as f:
                 content = f.readlines()
                 content = [x.strip() for x in content]
@@ -56,7 +57,7 @@ def write_data_to_DB():
                     kV = float(line.split(',')[0])
                     T = float(line.split(',')[1])
                     SNR = float(line.split(',')[2])
-                    db.add_data(voltage=kV, T=T, SNR=SNR)
+                    db.add_data(d, voltage=kV, T=T, SNR=SNR)
 
 
 def main():
@@ -65,15 +66,52 @@ def main():
     #prep_data(path_to_raw_data, path_to_result_prep)
 
 
-    path_snr_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\SNR_evaluation_v6\2021-8-20_SNR'
-    path_T_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\SNR_evaluation_v6\2021-8-20_T'
-    path_fin_of_T_SNR = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\SNR_evaluation_v6'
-    #calc_curves(path_snr_data, path_T_data, path_fin_of_T_SNR)
+    #path_snr_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\2021-8-30_Evaluation\SNR'
+    #path_T_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\2021-8-30_Evaluation\Transmission'
+    path_result = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\2021-8-30_Evaluation\Eval_Result'
+    #calc_curves(path_snr_data, path_T_data, path_result)
 
 
-    #write_data_to_DB(path_fin_of_T_SNR)
-    ds = [4, 5, 6, 12, 13, 14]
-    SNR_Calculation.curve_db.create_MAP(os.path.join(path_fin_of_T_SNR, 'curves'), ds)
+    #write_data_to_DB(path=path_result)
+    ds = [1, 4, 5, 8, 9]
+    #create_MAP(path_result, ds, mode_fit=True)
+
+    #obj = act.Activator(list_d=ds, path_db=path_result)
+
+
+    test_arr = np.array([[0, 11, 34, 56, 75, 80, 99, 131, 165, 178],
+                         [0.26, 0.35, 0.25, 0.27, 0.26, 0.31, 0.22, 0.52, 0.41, 0.45]])
+
+    U0= 62
+
+    act = Activator.Activator(data_T=test_arr, path_db=path_result, U0=U0)
+    act()
+
+    print('test')
+
+
+
+def plot(arr):
+    x = arr[0, :]
+    y = arr[1, :]
+    plt.scatter(x, y)
+    coefs = poly.polyfit(x, y, 10)
+    x_new = np.linspace(x[0], x[-1], num=len(x) * 10)
+    ffit = poly.polyval(x_new, coefs)
+    plt.plot(x_new, ffit, '--', c='grey')
+    plt.show()
+
+def devide(arr):
+    N = 10
+    _arr = np.copy(arr)
+    for i in range(1, len(_arr[0]-1), 1):
+        _row_angle = np.linspace(_arr[0, i-1], _arr[0, i], N, endpoint=False)   #  discard endpoint
+        _row_T = np.linspace(_arr[1, i-1], _arr[1, i], N, endpoint=False)
+        _entries = np.vstack((_row_angle, _row_T))
+        arr = np.hstack((arr[:, 0:i], _entries[:, 1:], arr[:, i:]))                # chop original array at the index of inserting. Insert interpolated data. Discard first entry
+    return arr
+
+
 
 
 
