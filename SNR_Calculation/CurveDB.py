@@ -18,19 +18,19 @@ class DB:
 
     def add_data(self, d, voltage, SNR=None, T=None):
         self.c = self.conn.cursor()
+        d = str(d)
+        self.c.execute("CREATE TABLE IF NOT EXISTS curve_" + d + "(voltage REAL, T REAL, SNR REAL)")
         self.c.execute("SELECT T, SNR FROM curve_" + str(d) + " WHERE T=? OR SNR=?", (T, SNR))
         duplicates = self.c.fetchone()
         if duplicates:
             print(f'ignoring duplicates: {d}mm -> {duplicates}')
         else:
             with self.conn:
-                self.c.execute("INSERT INTO curve_" + self.d + " VALUES (?, ?, ?)", (voltage, T, SNR))
+                self.c.execute("INSERT INTO curve_" + d + " VALUES (?, ?, ?)", (voltage, T, SNR))
 
     def read_data(self, d):
         self.d = str(d)
         self.c = self.conn.cursor()
-
-        #self.create_table(int(self.d))
         self.c.execute("SELECT voltage, T, SNR FROM curve_" + self.d)
         rows = self.c.fetchall()
         list_voltage = [x[0] for x in rows]

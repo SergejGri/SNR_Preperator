@@ -36,7 +36,7 @@ def prep_data(path_base, path_result_prep):
 
 
 def calc_curves(path_snr, path_T, path_fin):
-    thickness = [0, 1, 4, 5, 8, 9]
+    thickness = [0, 1, 2, 4, 5, 8, 9]
     for i in range(len(thickness)):
         map = SNRMapGenerator(path_snr=path_snr, path_T=path_T, path_fin=path_fin, d=thickness[i])
         map()
@@ -61,8 +61,8 @@ def write_data_to_DB(path):
 
 
 def main():
-    path_to_raw_data = r'\\132.187.193.8\junk\sgrischagin\2021-08-09-Sergej_SNR_Stufelkeil_40-75kV'
-    path_to_result_prep = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\SNR_evaluation_v6'
+    #path_to_raw_data = r'\\132.187.193.8\junk\sgrischagin\2021-08-09-Sergej_SNR_Stufelkeil_40-75kV'
+    #path_to_result_prep = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\SNR_evaluation_v6'
     #prep_data(path_to_raw_data, path_to_result_prep)
 
 
@@ -82,12 +82,10 @@ def main():
     test_arr = np.array([[0, 11, 34, 56, 75, 80, 99, 131, 165, 178],
                          [0.26, 0.35, 0.25, 0.27, 0.26, 0.31, 0.22, 0.52, 0.41, 0.45]])
 
-    U0= 62
+    U0 = 100
 
-    act = Activator.Activator(data_T=test_arr, path_db=path_result, U0=U0)
+    act = Activator.Activator(data_T=test_arr, path_db=path_result, U0=U0, ds=ds)
     act()
-
-    print('test')
 
 
 

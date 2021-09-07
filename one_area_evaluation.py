@@ -48,8 +48,8 @@ def man_SNR_eval_single():
     nbins = 300
     path_map = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\BAD-PIXEL-bin1x1-scans-MetRIC.tif'
 
-    dirs = ['40kV', '60kV', '80kV', '100kV', '120kV', '140kV', '160kV', '180kV']
-    thicknesses = ['0', '1']
+    dirs = ['140kV', '160kV', '180kV']
+    thicknesses = ['2']
     for dir in dirs:
         figure = None
         for d in thicknesses:
@@ -171,8 +171,8 @@ def man_T_eval_single():
     nbins = 300
 
 
-    dirs = ['80kV', '100kV', '120kV', '140kV', '160kV', '180kV']
-    thicknesses = ['0', '1']
+    dirs = ['40kV', '60kV', '80kV', '100kV', '120kV', '140kV', '160kV', '180kV']
+    thicknesses = ['2']
     for dir in dirs:
         for d in thicknesses:
             path_to_data = fr'\\132.187.193.8\junk\sgrischagin\2021-08-26-Sergej_SNR-Stufenkeil_130proj_6W\{dir}\{d}'
@@ -272,7 +272,7 @@ def man_T_eval_multi():
 
 
 def main():
-    man_T_eval_multi()
+    man_T_eval_single()
 
 
 if __name__ == '__main__':

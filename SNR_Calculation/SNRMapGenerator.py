@@ -19,7 +19,6 @@ class SNRMapGenerator:
             print(f'\n'
                   f'No value for kV_filter was passed. All voltage folders are being included for evaluation.')
 
-
         self.mean_SNR = None
         self.d = d
         self.d_mm = f'{self.d}_mm'
@@ -32,7 +31,8 @@ class SNRMapGenerator:
         self.list_SNR = []
 
     def __call__(self, *args, **kwargs):
-        self.db = db.DB()
+        self.path_db = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\2021-8-30_Evaluation\Eval_Result'
+        self.db = db.DB(self.path_db)
         self._collect_data()
         self.get_T_data()
         self.get_SNR_data()
@@ -46,9 +46,6 @@ class SNRMapGenerator:
                 self.txt_files.append(os.path.join(self.path_snr, file))
 
 
-    def find_file(self, file):
-        pass
-        #return key_word
 
     def get_T_data(self):
         data_T = np.genfromtxt(os.path.join(self.path_T, f'{self.d_mm}.csv'), delimiter=';')
@@ -127,9 +124,6 @@ def plot(path_map, excl_filter=None):
             plt.ylabel('SNR')
             plt.tight_layout()
             plt.savefig(os.path.join(os.path.join(path_map, 'Plots'), f'SNR_T_{filename}mm_{max_kv}maxkV.png'))
-
-
-
 
 
 def write_data(path_T, path_SNR, path_fin):
