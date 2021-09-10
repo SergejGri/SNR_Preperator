@@ -44,7 +44,8 @@ class Activator:
         self.y_SNR_T = []
         self.c_U0_x = []
         self.c_U0_y = []
-        self.idx = None
+        self.intercept_x = 0
+        self.intercept_y = 0
 
 
     def __call__(self, *args, **kwargs):
@@ -53,7 +54,7 @@ class Activator:
         self.interpolate_SNR_T()
         self.interpolate_U0()
         self.interpolate_curves()
-        self.intercept_idx = self.find_intercept()
+        self.find_intercept()
         self.plot_MAP()
         #self.plot_SRN_kV()
 
@@ -117,30 +118,19 @@ class Activator:
         # create dummy function U0' with high sampling rate
         # find intercept with 'high precision'
         # searching for the x value where the U0x1 is greater than U0x0 for the first time
-        intercept = []
         dummy_f_U0 = interpolate.interp1d(self.c_U0_x, self.c_U0_y, kind='linear')
         dummy_x_U0 = np.linspace(self.c_U0_x[0], self.c_U0_x[-1], 10000)
         dummy_y = dummy_f_U0(dummy_x_U0)
-        idx = 0
+
         for i in range(len(dummy_x_U0)):
             if self.min_T == round(dummy_x_U0[i], 4):
-                idx = dummy_x_U0[i]
-            break
-        #x_val = dummy_y.index(idx)
-        #idx = np.argwhere( np.logical_and(dummy_x_U0 < self.min_T, self.min_T < dummy_x_U0))
+                self.intercept_x = dummy_x_U0[i]
+                self.intercept_y = dummy_y[i]
+                print(f'intercept: ({round(self.intercept_x, 3)} , {round(self.intercept_y, 3)})')
+                break
+        if self.intercept_x == 0 and self.intercept_y == 0:
+            print('no intercept between U0 and min. T found. You may reduce the round digits at find_intercept()')
 
-
-        #x = np.linspace(_curve.T[0], _curve.T[-1], 141)
-
-
-
-
-        num = len(self.c_U0_y)
-        f_Tmin = np.full((num,), self.min_T)
-        f_U0 = np.asarray(self.c_U0_y)
-        result = self.findIntersection(f_U0, f_Tmin, 0.0)
-        idx = np.argwhere(np.diff(np.sign(f_U0 - f_Tmin))).flatten()
-        return int(idx)
 
     def find_neighbours(self):
         # find first element in self.curves which where arg. > self.U0 ==> right border
@@ -159,19 +149,24 @@ class Activator:
                 self.curves[i].kVT_y.append(_curve.SNR[i])
 
     def plot_MAP(self):
+        col_red = '#D56489'
+        col_yellow = '#ECE6A6'
+        col_blue = '#009D9D'
+        col_green = '#41BA90'
         path_res = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\2021-8-30_Evaluation\Eval_Result'
         fig = plt.figure()
         ax = fig.add_subplot()
         for _c in self.curves:
-            plt.plot(_c.fit_SNRT_x[0], _c.fit_SNRT_y[0], c='red', alpha=0.5, linestyle='-', linewidth=3)  # fitted raw data curve
-            plt.scatter(_c.T, _c.SNR, label=f'{_c.d}mm', marker='o', c='grey', s=40)              # raw data points
+            plt.plot(_c.fit_SNRT_x[0], _c.fit_SNRT_y[0], c=col_red, alpha=0.6, linestyle='-', linewidth=3)  # fitted raw data curve
+            plt.scatter(_c.T, _c.SNR, label=f'{_c.d}mm', marker='o', c=col_red, s=40)              # raw data points
             ax.text(_c.T[0]-0.05, _c.SNR[0], f'{_c.d}mm')
         plt.title(f'$SRN(T)$ with $U_{0} = {self.U0}$kV       FIT: $f(x) = a x^{2} + bx + c$')
         plt.xlabel('Transmission a.u.')
         plt.ylabel('SNR/s')
         plt.xlim(self.curves[-1].T[0] - 0.05, self.curves[0].T[-1] + 0.02)
-        plt.plot(self.c_U0_x, self.c_U0_y, c='blue', linestyle='-', linewidth=3)                         # U0 curve
-        plt.axvline(x=self.min_T, c='blue', linestyle='--', linewidth=2)
+        plt.plot(self.c_U0_x, self.c_U0_y, c=col_green, linestyle='-', linewidth=2)                         # U0 curve
+        plt.axvline(x=self.min_T, c=col_green, linestyle='--', linewidth=1)
+        plt.scatter(self.intercept_x, self.intercept_y, c=col_red, marker='x', s=50)
         plt.show()
         fig.savefig(os.path.join(path_res, 'MAP_U0.pdf'), dpi=600)
 
