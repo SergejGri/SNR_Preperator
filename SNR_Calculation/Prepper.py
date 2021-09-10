@@ -103,7 +103,7 @@ class SNRCalculator:
         if T_result_name is not None:
             self.T_name = T_result_name
         self.T_name = f'{self.c_date.year}-{self.c_date.month}-{self.c_date.day}_T'
-        self.px_map = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\BAD-PIXEL-bin1x1-scans-MetRIC.tif'
+        self.px_map = r''
 
     def __call__(self, dir, df):
         if not self.mode_single:
@@ -225,7 +225,7 @@ class SNRCalculator:
         img.save(os.path.join(safe_path, f'{d}mm.tif'))
 
     def _get_result_paths(self, dir, dl, dr):
-        defaul_path = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR'
+        defaul_path = r''
         result_path_snr = None
         result_path_T = None
         if self.mode_SNR:
