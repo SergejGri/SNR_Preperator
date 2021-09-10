@@ -51,63 +51,54 @@ class Activator:
     def __call__(self, *args, **kwargs):
         #while not self.stop_exe:
         self.load_db()
-        self.interpolate_SNR_T()
+        self.interpolate_curve_piece()
         self.interpolate_U0()
-        self.interpolate_curves()
+        self.interpolate_curves_full()
+        self.create_virtual_curves()
         self.find_intercept()
         self.plot_MAP()
         #self.plot_SRN_kV()
 
-    def load_db(self):
-        db = DB(self.path_db)
-        for d in self.ds:
-            kV, T, SNR = db.read_data(d)                        # read curve
-            self.curves.append(Curve(d=d, kV=kV, T=T, SNR=SNR))
-
-
     def get_min_T(self):
         return np.min(self.data_T[1])
 
+    def load_db(self):
+        db = DB(self.path_db)
+        for d in self.ds:
+            kV, T, SNR = db.read_data(d, mode='raw')                        # read curve
+            self.curves.append(Curve(d=d, kV=kV, T=T, SNR=SNR))
 
-    def interpolate_SNR_T(self):
+    def interpolate_curve_piece(self):
         # 1)    interpolate SNR(T) curve in the given range of nearest neighbours
         # 2)    check the 'distance from U0 to the lower neighbour dist = self.U0 - l_neighbour
         dist, lb, rb = self.find_neighbours()
         step = rb - lb
-
-        #idx = self.U0 - self.kVs[0]
+        db = DB(self.path_db)
         for _curve in self.curves:
             # 1)    get left and right neighbours and interpolate between these values
             # 2)    append the values at given index to the c_U0x and c_U0_y
             il = _curve.kV.index(lb)
             ir = _curve.kV.index(rb)
             a, b, c = np.polyfit(_curve.T, _curve.SNR, deg=2)
-            #f = interpolate.interp1d(_curve.T, _curve.SNR, kind='linear')
             x_SNR_T = np.linspace(_curve.T[il], _curve.T[ir], step + 1)
             y_SNR_T = self.func_poly(x_SNR_T, a, b, c)
             self.c_U0_x.append(x_SNR_T[dist])
             self.c_U0_y.append(y_SNR_T[dist])
 
-
-    def interpolate_curves(self):
+    def interpolate_curves_full(self):
+        db = DB(self.path_db)
         for _curve in self.curves:
             a, b, c = np.polyfit(_curve.T, _curve.SNR, deg=2)
-            #f = interpolate.interp1d(_curve.T, _curve.SNR, kind='cubic')
             x = np.linspace(_curve.T[0], _curve.T[-1], 141)
+            vol = np.linspace(_curve.kV[0], _curve.kV[-1], 141)
             y = self.func_poly(x, a, b, c)
-            #y = f(x)
-            _curve.fit_SNRT_x.append(x)
-            _curve.fit_SNRT_y.append(y)
-            _curve.fit_SNRT_x = np.array(_curve.fit_SNRT_x)
-            _curve.fit_SNRT_y = np.array(_curve.fit_SNRT_y)
-
-    @staticmethod
-    def func_linear(x, m, t):
-        return m*x + t
-
-    @staticmethod
-    def func_poly(x, a, b, c):
-        return a*x**2 + b*x + c
+            for i in range(len(x)):
+                db.add_data(d=_curve.d, voltage=vol[i], SNR=y[i], T=x[i], mode='fit')
+            # Folgender Code kann eigentlich weg, erfodert jedoch eine genauere Betrachtung.
+            #_curve.fit_SNRT_x.append(x)
+            #_curve.fit_SNRT_y.append(y)
+            #_curve.fit_SNRT_x = np.array(_curve.fit_SNRT_x)
+            #_curve.fit_SNRT_y = np.array(_curve.fit_SNRT_y)
 
     def interpolate_U0(self):
         #m, t = np.polyfit(self.c_U0_x, self.c_U0_y, deg=1)
@@ -131,7 +122,6 @@ class Activator:
         if self.intercept_x == 0 and self.intercept_y == 0:
             print('no intercept between U0 and min. T found. You may reduce the round digits at find_intercept()')
 
-
     def find_neighbours(self):
         # find first element in self.curves which where arg. > self.U0 ==> right border
         # the nearest left entry is the left border between which the interpolation will take place
@@ -148,16 +138,57 @@ class Activator:
                 self.curves[i].kVT_x.append(_curve.T[i])
                 self.curves[i].kVT_y.append(_curve.SNR[i])
 
+
+    def create_virtual_curves(self):
+        step = 1
+        #   1) read first fitted curve from db
+        #   2) read second curve from db
+        #   3) calc the number of curves which needed to be created between first and second in respect to the step size
+        #   4) take the first data point (SNR/kV) of the second curve and the first data point (SNR/kV) of the first curve
+        #      and divide the abs between them into c_num + 1 pieces
+        new_kV = []
+        db = DB(self.path_db)
+        for i in range(len(self.ds)):
+            c_num = np.arange(self.ds[i], self.ds[i+1], step)[1:]
+            V_2, _, SNR_2 = db.read_data(d=self.ds[i+1], mode='fit')
+            V_1, _, SNR_1 = db.read_data(d=self.ds[i], mode='fit')
+
+
+            v_step = abs(SNR_2[0] - SNR_1[0]) / (len(c_num) + 1)
+            new_curve = np.arange(SNR_1[0], SNR_2[0], v_step)
+            SNR_xxx = []
+            for i in range(len(SNR_1)):
+                SNR_xxx.append(SNR_1[i] - v_step)
+
+            for _d in range(len(c_num)):
+                for val in range(len(SNR_1)):
+                    _SNR = SNR_1[val] - v_step
+                    #db.add_data(d=_d, voltage=V_1, SNR=)
+
+            print('test')
+        pass
+
+    @staticmethod
+    def func_linear(x, m, t):
+        return m*x + t
+
+    @staticmethod
+    def func_poly(x, a, b, c):
+        return a*x**2 + b*x + c
+
     def plot_MAP(self):
         col_red = '#D56489'
         col_yellow = '#ECE6A6'
         col_blue = '#009D9D'
         col_green = '#41BA90'
         path_res = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\2021-8-30_Evaluation\Eval_Result'
+        db = DB(self.path_db)
         fig = plt.figure()
         ax = fig.add_subplot()
         for _c in self.curves:
-            plt.plot(_c.fit_SNRT_x[0], _c.fit_SNRT_y[0], c=col_red, alpha=0.6, linestyle='-', linewidth=3)  # fitted raw data curve
+            V, T, SNR = db.read_data(_c.d, mode='fit')
+            plt.plot(T, SNR, c=col_red, alpha=0.6, linestyle='-', linewidth=3)
+            #plt.plot(_c.fit_SNRT_x[0], _c.fit_SNRT_y[0], c=col_red, alpha=0.6, linestyle='-', linewidth=3)  # fitted raw data curve
             plt.scatter(_c.T, _c.SNR, label=f'{_c.d}mm', marker='o', c=col_red, s=40)              # raw data points
             ax.text(_c.T[0]-0.05, _c.SNR[0], f'{_c.d}mm')
         plt.title(f'$SRN(T)$ with $U_{0} = {self.U0}$kV       FIT: $f(x) = a x^{2} + bx + c$')
@@ -169,6 +200,9 @@ class Activator:
         plt.scatter(self.intercept_x, self.intercept_y, c=col_red, marker='x', s=50)
         plt.show()
         fig.savefig(os.path.join(path_res, 'MAP_U0.pdf'), dpi=600)
+
+
+
 
 
     def plot_SRN_kV(self):

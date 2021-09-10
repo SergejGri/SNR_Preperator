@@ -208,22 +208,6 @@ class SNRCalculator:
             f_l.close()
             f_r.close()
 
-    def draw_marker(self, img, d):
-        _min = np.where(img == np.min(img))
-        _miny = int(_min[0])
-        _minx = int(_min[1])
-        img = Image.fromarray((img * 255).astype(np.uint16))
-        r = 15
-        draw = ImageDraw.Draw(img)
-        leftUpPoint = (_minx - r, _miny - r)
-        rightDownPoint = (_minx + r, _miny + r)
-        twoPointList = [leftUpPoint, rightDownPoint]
-        draw.ellipse(twoPointList, outline='red')
-        safe_path = os.path.join(self.result_path, 'Transmission', 'evaluated_images')
-        if not os.path.exists(safe_path):
-            os.makedirs(safe_path)
-        img.save(os.path.join(safe_path, f'{d}mm.tif'))
-
     def _get_result_paths(self, dir, dl, dr):
         defaul_path = r''
         result_path_snr = None
@@ -243,7 +227,6 @@ class SNRCalculator:
             if not os.path.exists(result_path_T):
                 os.makedirs(result_path_T)
         return result_path_snr, result_path_T
-
 
     def _get_t_exp(self, path):
         t_exp = None

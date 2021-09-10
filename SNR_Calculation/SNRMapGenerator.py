@@ -45,8 +45,6 @@ class SNRMapGenerator:
             if f'_{self.d}_mm' in file and file.endswith('.txt'):
                 self.txt_files.append(os.path.join(self.path_snr, file))
 
-
-
     def get_T_data(self):
         data_T = np.genfromtxt(os.path.join(self.path_T, f'{self.d_mm}.csv'), delimiter=';')
         data_T = data_T[data_T[:, 0].argsort()]

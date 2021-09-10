@@ -16,22 +16,35 @@ class DB:
         with self.conn:
             self.c.execute("CREATE TABLE IF NOT EXISTS curve_" + d + "(voltage REAL, T REAL, SNR REAL)")
 
-    def add_data(self, d, voltage, SNR=None, T=None):
+    def add_data(self, d, voltage, SNR=None, T=None, mode=None):
         self.c = self.conn.cursor()
         d = str(d)
-        self.c.execute("CREATE TABLE IF NOT EXISTS curve_" + d + "(voltage REAL, T REAL, SNR REAL)")
-        self.c.execute("SELECT T, SNR FROM curve_" + str(d) + " WHERE T=? OR SNR=?", (T, SNR))
-        duplicates = self.c.fetchone()
-        if duplicates:
-            print(f'ignoring duplicates: {d}mm -> {duplicates}')
-        else:
-            with self.conn:
-                self.c.execute("INSERT INTO curve_" + d + " VALUES (?, ?, ?)", (voltage, T, SNR))
+        if mode == 'raw':
+            self.c.execute("CREATE TABLE IF NOT EXISTS curve_" + d + "(voltage REAL, T REAL, SNR REAL)")
+            self.c.execute("SELECT T, SNR FROM curve_" + str(d) + " WHERE T=? OR SNR=?", (T, SNR))
+            duplicates = self.c.fetchone()
+            if duplicates:
+                print(f'ignoring duplicates: {d}mm -> {duplicates}')
+            else:
+                with self.conn:
+                    self.c.execute("INSERT INTO curve_" + d + " VALUES (?, ?, ?)", (voltage, T, SNR))
+        if mode == 'fit':
+            self.c.execute("CREATE TABLE IF NOT EXISTS curve_fit_" + d + "(voltage REAL, T REAL, SNR REAL)")
+            self.c.execute("SELECT T, SNR FROM curve_fit_" + str(d) + " WHERE T=? OR SNR=?", (T, SNR))
+            duplicates = self.c.fetchone()
+            if duplicates:
+                print(f'ignoring duplicates: {d}mm -> {duplicates}')
+            else:
+                with self.conn:
+                    self.c.execute("INSERT INTO curve_fit_" + d + " VALUES (?, ?, ?)", (voltage, T, SNR))
 
-    def read_data(self, d):
+    def read_data(self, d, mode=None):
         self.d = str(d)
         self.c = self.conn.cursor()
-        self.c.execute("SELECT voltage, T, SNR FROM curve_" + self.d)
+        if mode == 'raw':
+            self.c.execute("SELECT voltage, T, SNR FROM curve_" + self.d)
+        if mode == 'fit':
+            self.c.execute("SELECT voltage, T, SNR FROM curve_fit_" + self.d)
         rows = self.c.fetchall()
         list_voltage = [x[0] for x in rows]
         list_T = [x[1] for x in rows]
