@@ -159,7 +159,7 @@ class Activator:
                 self.curves[i].kVT_y.append(_curve.SNR[i])
 
     def plot_MAP(self):
-        path_res = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\2021-8-30_Evaluation\Eval_Result'
+        path_res = r''
         fig = plt.figure()
         ax = fig.add_subplot()
         for _c in self.curves:
@@ -177,7 +177,7 @@ class Activator:
 
 
     def plot_SRN_kV(self):
-        path_res = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\2021-8-30_Evaluation\Eval_Result'
+        path_res = r''
         fig = plt.figure()
         ax1 = fig.add_subplot(111)
         ax2 = ax1.twiny()
