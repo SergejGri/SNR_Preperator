@@ -31,7 +31,7 @@ class SNRMapGenerator:
         self.list_SNR = []
 
     def __call__(self, *args, **kwargs):
-        self.path_db = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\2021-8-30_Evaluation\Eval_Result'
+        self.path_db = r''
         self.db = db.DB(self.path_db)
         self._collect_data()
         self.get_T_data()
