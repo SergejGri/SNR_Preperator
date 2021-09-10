@@ -1,4 +1,5 @@
 import gc
+import math
 import matplotlib.pyplot as plt
 from SNR_Calculation.CurveDB import *
 import numpy.polynomial.polynomial as poly
@@ -138,8 +139,30 @@ class Activator:
                 self.curves[i].kVT_x.append(_curve.T[i])
                 self.curves[i].kVT_y.append(_curve.SNR[i])
 
-
     def create_virtual_curves(self):
+        #   1) read first fitted curve from db
+        #   2) read second curve from db
+        #   3) calc the number of curves which needed to be created between first and second in respect to the step size
+        #   4) take the first data point (SNR/kV) of the second curve and the first data point (SNR/kV) of the first curve
+        #      and divide the abs between them into c_num + 1 pieces
+        step = 1
+        new_kV = []
+        db = DB(self.path_db)
+        for i in range(len(self.ds)):
+
+            c_num = np.arange(self.ds[i], self.ds[i + 1], step)[1:]
+            V_2, T_2, SNR_2 = db.read_data(d=self.ds[i + 1], mode='fit')
+            V_1, T_1, SNR_1 = db.read_data(d=self.ds[i], mode='fit')
+
+            dist = math.hypot(T_2[0] - T_1[0], SNR_2[0] - SNR_1[0])
+
+            print('test')
+
+
+
+
+
+    '''def create_virtual_curves(self):
         step = 1
         #   1) read first fitted curve from db
         #   2) read second curve from db
@@ -153,9 +176,8 @@ class Activator:
             V_2, _, SNR_2 = db.read_data(d=self.ds[i+1], mode='fit')
             V_1, _, SNR_1 = db.read_data(d=self.ds[i], mode='fit')
 
-
             v_step = abs(SNR_2[0] - SNR_1[0]) / (len(c_num) + 1)
-            new_curve = np.arange(SNR_1[0], SNR_2[0], v_step)
+            new_curve = np.arange(SNR_2[0], SNR_1[0], v_step)[1:]
             SNR_xxx = []
             for i in range(len(SNR_1)):
                 SNR_xxx.append(SNR_1[i] - v_step)
@@ -164,9 +186,8 @@ class Activator:
                 for val in range(len(SNR_1)):
                     _SNR = SNR_1[val] - v_step
                     #db.add_data(d=_d, voltage=V_1, SNR=)
-
             print('test')
-        pass
+        pass'''
 
     @staticmethod
     def func_linear(x, m, t):
