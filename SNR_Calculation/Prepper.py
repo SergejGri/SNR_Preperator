@@ -1,8 +1,8 @@
 import datetime
 import os
 import gc
-import SNR_Calculation.curve_db
-import SNR_Calculation.curve_db as cdb
+import SNR_Calculation.CurveDB
+import SNR_Calculation.CurveDB as cdb
 from PIL import Image, ImageDraw
 import numpy as np
 from externe_files import file
@@ -103,7 +103,7 @@ class SNRCalculator:
         if T_result_name is not None:
             self.T_name = T_result_name
         self.T_name = f'{self.c_date.year}-{self.c_date.month}-{self.c_date.day}_T'
-        self.px_map = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\BAD-PIXEL-bin1x1-scans-MetRIC.tif'
+        self.px_map = r''
 
     def __call__(self, dir, df):
         if not self.mode_single:
@@ -115,8 +115,8 @@ class SNRCalculator:
         rng = (29, 99)
         results = []
 
-        imgs_dark = r'\\132.187.193.8\junk\sgrischagin\2021-08-09-Sergej_SNR_Stufelkeil_40-75kV\darks'
-        _, imgs_ref, _ = self.prepare_imgs(self.path_base, dir, df)
+
+        _, imgs_ref, imgs_dark = self.prepare_imgs(self.path_base, dir, df)
         path_save_SNR = os.path.join(self.path_result, self.SNR_name, dir)
         path_save_T = os.path.join(self.path_result, self.T_name)
         if not os.path.exists(path_save_T):
@@ -135,15 +135,15 @@ class SNRCalculator:
 
         areas = self.get_areas()
 
-        darks = file.volume.Reader(imgs_dark, mode='raw', shape=self.img_shape, header=self.header).load_range(self.stack_range)
-        refs = file.volume.Reader(imgs_ref, mode='raw', shape=self.img_shape, header=self.header).load_range(self.stack_range)
+        darks = file.volume.Reader(imgs_dark, mode='raw', shape=self.img_shape, header=self.header).load_all()
+        refs = file.volume.Reader(imgs_ref, mode='raw', shape=self.img_shape, header=self.header).load_all()
         figure = None
         for a in range(len(areas)):
             d_l, d_r = self.filter_area_to_t(df, areas[a])
 
             imgs, _, _ = self.prepare_imgs(self.path_base, dir, df, areas[a])
 
-            data = file.volume.Reader(imgs, mode='raw', shape=self.img_shape, header=self.header).load_range(self.stack_range)
+            data = file.volume.Reader(imgs, mode='raw', shape=self.img_shape, header=self.header).load_all()
 
             if self.mode_T:
                 img = (data[self.slice_l] - darks[self.slice_l]) / (refs[self.slice_l] - darks[self.slice_l])
@@ -208,24 +208,8 @@ class SNRCalculator:
             f_l.close()
             f_r.close()
 
-    def draw_marker(self, img, d):
-        _min = np.where(img == np.min(img))
-        _miny = int(_min[0])
-        _minx = int(_min[1])
-        img = Image.fromarray((img * 255).astype(np.uint16))
-        r = 15
-        draw = ImageDraw.Draw(img)
-        leftUpPoint = (_minx - r, _miny - r)
-        rightDownPoint = (_minx + r, _miny + r)
-        twoPointList = [leftUpPoint, rightDownPoint]
-        draw.ellipse(twoPointList, outline='red')
-        safe_path = os.path.join(self.result_path, 'Transmission', 'evaluated_images')
-        if not os.path.exists(safe_path):
-            os.makedirs(safe_path)
-        img.save(os.path.join(safe_path, f'{d}mm.tif'))
-
     def _get_result_paths(self, dir, dl, dr):
-        defaul_path = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR'
+        defaul_path = r''
         result_path_snr = None
         result_path_T = None
         if self.mode_SNR:
@@ -244,7 +228,6 @@ class SNRCalculator:
                 os.makedirs(result_path_T)
         return result_path_snr, result_path_T
 
-
     def _get_t_exp(self, path):
         t_exp = None
         for file in os.listdir(path):
@@ -259,11 +242,11 @@ class SNRCalculator:
         imgs = None
         ref_imgs = None
         dark_imgs = None
-        if os.path.isdir(os.path.join(path, dir)) and dir != 'darks':
-            dark_imgs = os.path.join(path, 'darks')
+        if os.path.isdir(os.path.join(path, dir)):
+            dark_imgs = os.path.join(path, dir, 'darks')
             if area is not None:
-                imgs = os.path.join(path, dir, 'imgs', df, area)
-            ref_imgs = os.path.join(path, dir, 'refs')
+                imgs = os.path.join(path, dir, '4u8', area)
+            ref_imgs = os.path.join(path, dir, '4u8', 'refs')
         return imgs, ref_imgs, dark_imgs
 
     @staticmethod
