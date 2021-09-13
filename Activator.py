@@ -26,7 +26,6 @@ class Curve:
 
 class Activator:
     def __init__(self, data_T: list, path_db: str, U0: int, ds: list):
-        #self.stop_exe = False
         self.data_T = data_T
         self.min_T = self.get_min_T()
         self.path_db = path_db
@@ -52,7 +51,6 @@ class Activator:
 
 
     def __call__(self, *args, **kwargs):
-        #while not self.stop_exe:
         self.load_db()
         self.interpolate_curve_piece()
         self.interpolate_U0()
@@ -60,7 +58,6 @@ class Activator:
         self.create_virtual_curves()
         self.find_intercept()
         self.plot_MAP()
-        #self.plot_SRN_kV()
 
     def get_min_T(self):
         return np.min(self.data_T[1])
@@ -97,14 +94,8 @@ class Activator:
             y = self.func_poly(x, a, b, c)
             for i in range(len(x)):
                 db.add_data(d=_curve.d, voltage=vol[i], SNR=y[i], T=x[i], mode='fit')
-            # Folgender Code kann eigentlich weg, erfodert jedoch eine genauere Betrachtung.
-            #_curve.fit_SNRT_x.append(x)
-            #_curve.fit_SNRT_y.append(y)
-            #_curve.fit_SNRT_x = np.array(_curve.fit_SNRT_x)
-            #_curve.fit_SNRT_y = np.array(_curve.fit_SNRT_y)
 
     def interpolate_U0(self):
-        #m, t = np.polyfit(self.c_U0_x, self.c_U0_y, deg=1)
         self.f_U0 = interpolate.interp1d(self.c_U0_x, self.c_U0_y, kind='linear')
         self.x_U0 = np.linspace(self.c_U0_x[0], self.c_U0_x[-1], 141)
 
@@ -147,15 +138,14 @@ class Activator:
         #   3) calc the number of curves which needed to be created between first and second in respect to the step size
         #   4) take the first data point (SNR/kV) of the second curve and the first data point (SNR/kV) of the first curve
         #      and divide the abs between them into c_num + 1 pieces
-        step = 1
-        new_kV = []
+        step = 0.1
         db = DB(self.path_db)
         for i in range(len(self.ds)-1):
 
             c_num = np.arange(self.ds[i], self.ds[i + 1], step)[1:]
+            c_num = c_num[::-1]
             V_2, T_2, SNR_2 = db.read_data(d=self.ds[i + 1], mode='raw')
             V_1, T_1, SNR_1 = db.read_data(d=self.ds[i], mode='raw')
-
 
             for j in range(len(T_1)):
                 _x = [T_2[j], T_1[j]]
@@ -164,22 +154,9 @@ class Activator:
                 _x_new = np.linspace(T_2[j], T_1[j], len(c_num)+2)[1:-1]
                 _y_new = f(_x_new)
 
-                c_num = c_num[::-1]
                 for k in range(len(_x_new)):
                     _d = c_num[k]
-
-                    print('test')
                     db.add_data(d=_d, voltage=V_1[j], SNR=_y_new[k], T=_x_new[k], mode='virtual')
-        '''     self.virtual_xs.append(_x_new)
-                self.virtual_ys.append(_y_new)
-        self.virtual_xs = np.asarray(self.virtual_xs)
-        self.virtual_ys = np.asarray(self.virtual_ys)'''
-
-
-    def fit_virtual_curves(self):
-        db = DB(self.path_db)
-        V, SNT, T = db.read_data()
-        pass
 
     @staticmethod
     def func_linear(x, m, t):
@@ -207,11 +184,14 @@ class Activator:
         for d in range(20):
             try:
                 vV, vT, vSNR = db.read_data(d, mode='virtual')
-                plt.scatter(vT, vSNR, c=col_red, alpha=0.5, s=30)
+                plt.scatter(vT, vSNR, c=col_red, alpha=0.4, s=30)
+                a, b, c = np.polyfit(vT, vSNR, deg=2)
+                x = np.linspace(vT[0], vT[-1], 141)
+                y = self.func_poly(x, a, b, c)
+                plt.plot(x, y,  c=col_red, alpha=0.4)
+                ax.text(vT[0] - 0.05, vSNR[0], f'{d}mm')
             except:
                 print(f'no data in table curve_vir_{d} exists. Trying next d.')
-
-
 
         plt.title(f'$SRN(T)$ with $U_{0} = {self.U0}$kV       FIT: $f(x) = a x^{2} + bx + c$')
         plt.xlabel('Transmission a.u.')
@@ -222,10 +202,6 @@ class Activator:
         plt.scatter(self.intercept_x, self.intercept_y, c=col_red, marker='x', s=50)
         plt.show()
         fig.savefig(os.path.join(path_res, 'MAP_U0.pdf'), dpi=600)
-
-
-
-
 
     def plot_SRN_kV(self):
         path_res = r'C:\Users\Rechenfuchs\PycharmProjects\SNR_Preperator_new_approach'
