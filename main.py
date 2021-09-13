@@ -48,7 +48,6 @@ def write_data_to_DB(path):
             working_file = os.path.join(path, file)
             d = int(file.split('_mm')[0])
             db = DB(path_DB=path)
-            #db.read_data(d)
             with open(working_file) as f:
                 content = f.readlines()
                 content = [x.strip() for x in content]
@@ -68,7 +67,7 @@ def main():
 
     #path_snr_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\2021-8-30_Evaluation\SNR'
     #path_T_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\2021-8-30_Evaluation\Transmission'
-    path_result = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\2021-8-30_Evaluation\Eval_Result'
+    path_result = r'C:\Users\Rechenfuchs\PycharmProjects\SNR_Preperator_new_approach'
     #calc_curves(path_snr_data, path_T_data, path_result)
 
 
@@ -82,35 +81,10 @@ def main():
     test_arr = np.array([[0, 11, 34, 56, 75, 80, 99, 131, 165, 178],
                          [0.26, 0.35, 0.25, 0.27, 0.26, 0.31, 0.22, 0.52, 0.41, 0.45]])
 
-    U0 = 96
+    U0 = 60
 
     act = Activator.Activator(data_T=test_arr, path_db=path_result, U0=U0, ds=ds)
     act()
-
-
-
-def plot(arr):
-    x = arr[0, :]
-    y = arr[1, :]
-    plt.scatter(x, y)
-    coefs = poly.polyfit(x, y, 10)
-    x_new = np.linspace(x[0], x[-1], num=len(x) * 10)
-    ffit = poly.polyval(x_new, coefs)
-    plt.plot(x_new, ffit, '--', c='grey')
-    plt.show()
-
-def devide(arr):
-    N = 10
-    _arr = np.copy(arr)
-    for i in range(1, len(_arr[0]-1), 1):
-        _row_angle = np.linspace(_arr[0, i-1], _arr[0, i], N, endpoint=False)   #  discard endpoint
-        _row_T = np.linspace(_arr[1, i-1], _arr[1, i], N, endpoint=False)
-        _entries = np.vstack((_row_angle, _row_T))
-        arr = np.hstack((arr[:, 0:i], _entries[:, 1:], arr[:, i:]))                # chop original array at the index of inserting. Insert interpolated data. Discard first entry
-    return arr
-
-
-
 
 
 if __name__ == '__main__':

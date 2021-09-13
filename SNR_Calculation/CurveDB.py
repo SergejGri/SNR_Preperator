@@ -16,12 +16,16 @@ class DB:
         with self.conn:
             self.c.execute("CREATE TABLE IF NOT EXISTS curve_" + d + "(voltage REAL, T REAL, SNR REAL)")
 
-    def add_data(self, d, voltage, SNR=None, T=None, mode=None):
+    def add_data(self, d, voltage, SNR=None, T=None, mode: str = None):
+        '''
+        :param mode: accepts 'raw' or 'fit' as input. If 'raw' is set, the passed values are going to be stored to the
+        unfitted data otherwise to the tables with fitted curves.
+        '''
         self.c = self.conn.cursor()
         d = str(d)
         if mode == 'raw':
             self.c.execute("CREATE TABLE IF NOT EXISTS curve_" + d + "(voltage REAL, T REAL, SNR REAL)")
-            self.c.execute("SELECT T, SNR FROM curve_" + str(d) + " WHERE T=? OR SNR=?", (T, SNR))
+            self.c.execute("SELECT T, SNR FROM curve_" + d + " WHERE T=? OR SNR=?", (T, SNR))
             duplicates = self.c.fetchone()
             if duplicates:
                 print(f'ignoring duplicates: {d}mm -> {duplicates}')
@@ -30,27 +34,61 @@ class DB:
                     self.c.execute("INSERT INTO curve_" + d + " VALUES (?, ?, ?)", (voltage, T, SNR))
         if mode == 'fit':
             self.c.execute("CREATE TABLE IF NOT EXISTS curve_fit_" + d + "(voltage REAL, T REAL, SNR REAL)")
-            self.c.execute("SELECT T, SNR FROM curve_fit_" + str(d) + " WHERE T=? OR SNR=?", (T, SNR))
+            self.c.execute("SELECT T, SNR FROM curve_fit_" + d + " WHERE T=? OR SNR=?", (T, SNR))
             duplicates = self.c.fetchone()
             if duplicates:
                 print(f'ignoring duplicates: {d}mm -> {duplicates}')
             else:
                 with self.conn:
                     self.c.execute("INSERT INTO curve_fit_" + d + " VALUES (?, ?, ?)", (voltage, T, SNR))
+        if mode == 'virtual':
+            self.c.execute("CREATE TABLE IF NOT EXISTS curve_vir_" + d + "(voltage REAL, T REAL, SNR REAL)")
+            self.c.execute("SELECT T, SNR FROM curve_vir_" + d + " WHERE T=? OR SNR=?", (T, SNR))
+            duplicates = self.c.fetchone()
+            if duplicates:
+                print(f'ignoring duplicates: {d}mm -> {duplicates}')
+            else:
+                with self.conn:
+                    self.c.execute("INSERT INTO curve_vir_" + d + " VALUES (?, ?, ?)", (voltage, T, SNR))
 
     def read_data(self, d, mode=None):
         self.d = str(d)
         self.c = self.conn.cursor()
+        table_exists = False
         if mode == 'raw':
-            self.c.execute("SELECT voltage, T, SNR FROM curve_" + self.d)
-        if mode == 'fit':
-            self.c.execute("SELECT voltage, T, SNR FROM curve_fit_" + self.d)
-        rows = self.c.fetchall()
-        list_voltage = [x[0] for x in rows]
-        list_T = [x[1] for x in rows]
-        list_SNR = [x[2] for x in rows]
-        self.c.close()
-        return list_voltage, list_T, list_SNR
+            if self.table_exists(f'curve_{self.d}'):
+                self.c.execute("SELECT voltage, T, SNR FROM curve_" + self.d)
+                table_exists = True
+        elif mode == 'fit':
+            if self.table_exists(f'curve_fit_{self.d}'):
+                self.c.execute("SELECT voltage, T, SNR FROM curve_fit_" + self.d)
+                table_exists = True
+        elif mode=='virtual':
+            if self.table_exists(f'curve_vir_{self.d}'):
+                self.c.execute("SELECT voltage, T, SNR FROM curve_vir_" + self.d)
+                table_exists = True
+            else:
+                print(f'No data exists for {d}')
+                table_exists = False
+        if table_exists == True:
+            rows = self.c.fetchall()
+            list_voltage = [x[0] for x in rows]
+            list_T = [x[1] for x in rows]
+            list_SNR = [x[2] for x in rows]
+            self.c.close()
+            return list_voltage, list_T, list_SNR
+
+    def table_exists(self, name):
+        # Check if there is an column with voltage entries --> existing table
+        name = str(name)
+        try:
+            list_of_tables = self.c.execute("SELECT voltage FROM "+name+"").fetchall()
+        except:
+            print('test')
+        if list_of_tables == []:
+            return False
+        else:
+            return True
 
 
 def create_MAP(path_res, list_ds, mode_fit=False):

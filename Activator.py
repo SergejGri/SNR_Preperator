@@ -47,6 +47,8 @@ class Activator:
         self.c_U0_y = []
         self.intercept_x = 0
         self.intercept_y = 0
+        self.virtual_xs = []
+        self.virtual_ys = []
 
 
     def __call__(self, *args, **kwargs):
@@ -148,46 +150,36 @@ class Activator:
         step = 1
         new_kV = []
         db = DB(self.path_db)
-        for i in range(len(self.ds)):
+        for i in range(len(self.ds)-1):
 
             c_num = np.arange(self.ds[i], self.ds[i + 1], step)[1:]
-            V_2, T_2, SNR_2 = db.read_data(d=self.ds[i + 1], mode='fit')
-            V_1, T_1, SNR_1 = db.read_data(d=self.ds[i], mode='fit')
-
-            dist = math.hypot(T_2[0] - T_1[0], SNR_2[0] - SNR_1[0])
-
-            print('test')
+            V_2, T_2, SNR_2 = db.read_data(d=self.ds[i + 1], mode='raw')
+            V_1, T_1, SNR_1 = db.read_data(d=self.ds[i], mode='raw')
 
 
+            for j in range(len(T_1)):
+                _x = [T_2[j], T_1[j]]
+                _y = [SNR_2[j], SNR_1[j]]
+                f = interpolate.interp1d(_x, _y, kind='linear')
+                _x_new = np.linspace(T_2[j], T_1[j], len(c_num)+2)[1:-1]
+                _y_new = f(_x_new)
+
+                c_num = c_num[::-1]
+                for k in range(len(_x_new)):
+                    _d = c_num[k]
+
+                    print('test')
+                    db.add_data(d=_d, voltage=V_1[j], SNR=_y_new[k], T=_x_new[k], mode='virtual')
+        '''     self.virtual_xs.append(_x_new)
+                self.virtual_ys.append(_y_new)
+        self.virtual_xs = np.asarray(self.virtual_xs)
+        self.virtual_ys = np.asarray(self.virtual_ys)'''
 
 
-
-    '''def create_virtual_curves(self):
-        step = 1
-        #   1) read first fitted curve from db
-        #   2) read second curve from db
-        #   3) calc the number of curves which needed to be created between first and second in respect to the step size
-        #   4) take the first data point (SNR/kV) of the second curve and the first data point (SNR/kV) of the first curve
-        #      and divide the abs between them into c_num + 1 pieces
-        new_kV = []
+    def fit_virtual_curves(self):
         db = DB(self.path_db)
-        for i in range(len(self.ds)):
-            c_num = np.arange(self.ds[i], self.ds[i+1], step)[1:]
-            V_2, _, SNR_2 = db.read_data(d=self.ds[i+1], mode='fit')
-            V_1, _, SNR_1 = db.read_data(d=self.ds[i], mode='fit')
-
-            v_step = abs(SNR_2[0] - SNR_1[0]) / (len(c_num) + 1)
-            new_curve = np.arange(SNR_2[0], SNR_1[0], v_step)[1:]
-            SNR_xxx = []
-            for i in range(len(SNR_1)):
-                SNR_xxx.append(SNR_1[i] - v_step)
-
-            for _d in range(len(c_num)):
-                for val in range(len(SNR_1)):
-                    _SNR = SNR_1[val] - v_step
-                    #db.add_data(d=_d, voltage=V_1, SNR=)
-            print('test')
-        pass'''
+        V, SNT, T = db.read_data()
+        pass
 
     @staticmethod
     def func_linear(x, m, t):
@@ -202,16 +194,25 @@ class Activator:
         col_yellow = '#ECE6A6'
         col_blue = '#009D9D'
         col_green = '#41BA90'
-        path_res = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\2021-8-30_Evaluation\Eval_Result'
+        path_res = r'C:\Users\Rechenfuchs\PycharmProjects\SNR_Preperator_new_approach'
         db = DB(self.path_db)
         fig = plt.figure()
         ax = fig.add_subplot()
         for _c in self.curves:
             V, T, SNR = db.read_data(_c.d, mode='fit')
-            plt.plot(T, SNR, c=col_red, alpha=0.6, linestyle='-', linewidth=3)
-            #plt.plot(_c.fit_SNRT_x[0], _c.fit_SNRT_y[0], c=col_red, alpha=0.6, linestyle='-', linewidth=3)  # fitted raw data curve
+            plt.plot(T, SNR, c=col_red, alpha=0.9, linestyle='-', linewidth=3)
             plt.scatter(_c.T, _c.SNR, label=f'{_c.d}mm', marker='o', c=col_red, s=40)              # raw data points
             ax.text(_c.T[0]-0.05, _c.SNR[0], f'{_c.d}mm')
+
+        for d in range(20):
+            try:
+                vV, vT, vSNR = db.read_data(d, mode='virtual')
+                plt.scatter(vT, vSNR, c=col_red, alpha=0.5, s=30)
+            except:
+                print(f'no data in table curve_vir_{d} exists. Trying next d.')
+
+
+
         plt.title(f'$SRN(T)$ with $U_{0} = {self.U0}$kV       FIT: $f(x) = a x^{2} + bx + c$')
         plt.xlabel('Transmission a.u.')
         plt.ylabel('SNR/s')
@@ -227,7 +228,7 @@ class Activator:
 
 
     def plot_SRN_kV(self):
-        path_res = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\2021-8-30_Evaluation\Eval_Result'
+        path_res = r'C:\Users\Rechenfuchs\PycharmProjects\SNR_Preperator_new_approach'
         fig = plt.figure()
         ax1 = fig.add_subplot(111)
         ax2 = ax1.twiny()
