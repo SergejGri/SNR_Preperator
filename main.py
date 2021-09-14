@@ -1,7 +1,6 @@
 import numpy as np
 from scipy import interpolate
 
-import Activator
 import Activator as act
 from SNR_Calculation.Prepper import *
 from SNR_Calculation.SNRMapGenerator import *
@@ -79,12 +78,12 @@ def main():
 
 
     test_arr = np.array([[0, 11, 34, 56, 75, 80, 99, 131, 165, 178],
-                         [0.26, 0.35, 0.25, 0.27, 0.26, 0.31, 0.22, 0.52, 0.41, 0.45]])
+                         [0.26, 0.35, 0.25, 0.27, 0.26, 0.31, 0.19, 0.52, 0.41, 0.45]])
 
-    U0 = 75
+    U0 = 55
 
-    act = Activator.Activator(data_T=test_arr, path_db=path_result, U0=U0, ds=ds)
-    act()
+    activator = act.Activator(data_T=test_arr, path_db=path_result, U0=U0, ds=ds)
+    activator()
 
 
 if __name__ == '__main__':
