@@ -50,15 +50,20 @@ class Activator:
         self.intercept_y = 0
         self.virtual_xs = []
         self.virtual_ys = []
+        self.d_opt = None
+        self.X_opt = None
+        self.Y_opt = None
+        self.kV_opt = None
 
 
     def __call__(self, *args, **kwargs):
         self.load_db()
         self.interpolate_curve_piece()
         self.interpolate_U0()
-        self.interpolate_curves_full()
+        #self.interpolate_curves_full()
         self.create_virtual_curves()
         self.find_intercept()
+        self.get_opt_SNR_curve()
         self.plot_MAP()
 
     def get_min_T(self):
@@ -75,7 +80,6 @@ class Activator:
         # 2)    check the 'distance from U0 to the lower neighbour dist = self.U0 - l_neighbour
         dist, lb, rb = self.find_neighbours()
         step = rb - lb
-        #db = DB(self.path_db)
         for _curve in self.curves:
             # 1)    get left and right neighbours and interpolate between these values
             # 2)    append the values at given index to the c_U0x and c_U0_y
@@ -89,13 +93,13 @@ class Activator:
 
     def interpolate_curves_full(self):
         db = DB(self.path_db)
-        for _curve in self.curves:
-            a, b, c = np.polyfit(_curve.T, _curve.SNR, deg=2)
-            x = np.linspace(_curve.T[0], _curve.T[-1], 141)
-            vol = np.linspace(_curve.kV[0], _curve.kV[-1], 141)
+        for _c in self.curves:
+            a, b, c = np.polyfit(_c.T, _c.SNR, deg=2)
+            x = np.linspace(_c.T[0], _c.T[-1], 141)
+            vol = np.linspace(_c.kV[0], _c.kV[-1], 141)
             y = self.func_poly(x, a, b, c)
             for i in range(len(x)):
-                db.add_data(d=_curve.d, voltage=vol[i], SNR=y[i], T=x[i], mode='fit')
+                db.add_data(d=_c.d, voltage=vol[i], SNR=y[i], T=x[i], mode='fit')
 
     def interpolate_U0(self):
         self.f_U0 = interpolate.interp1d(self.c_U0_x, self.c_U0_y, kind='linear')
@@ -140,7 +144,6 @@ class Activator:
         #   3) calc the number of curves which needed to be created between first and second in respect to the step size
         #   4) take the first data point (SNR/kV) of the second curve and the first data point (SNR/kV) of the first curve
         #      and divide the abs between them into c_num + 1 pieces
-        #   5)
         step = 0.1
         db = DB(self.path_db)
         for i in range(len(self.ds)-1):
@@ -170,6 +173,59 @@ class Activator:
                     _T.append(X[_j][k])
                     _SNR.append(Y[_j][k])
                 self.curves.append(Curve(d=_d, kV=kV, T=_T, SNR=_SNR))
+
+
+    def get_opt_SNR_curve(self):
+        #   1) take the x and y value of T_min and find between curves are 'neighbours'
+        #   2)  find min abs between x and y values of curves and intercept
+        #   3)  look into every curve. If the max SNR value is smaller than the actual intercept SNR value - > next curve
+        #       to find _d_max
+        watch_curves = []
+        for _c in self.curves:
+            _SNR_max = max(_c.SNR)
+            if not max(_c.SNR) < self.intercept_y:
+                watch_curves.append(_c)
+        del _c, _SNR_max
+        gc.collect()
+
+        old_delta = None
+        for i in range(len(watch_curves)):
+            _c = watch_curves[i]
+            _x, _y = self.poly_fit(_c.T, _c.SNR, 10000)
+
+            #   1) estimate the indeces which lays on the left and right side of intercept_x
+            idx = np.argwhere(_x < self.intercept_x)
+            #rb = np.argwhere(_x > self.intercept_x)
+            idx = idx.flatten()
+            idx = idx[-1]
+
+            delta = abs(_y[idx] - self.intercept_y)
+            if old_delta is None:
+                old_delta = delta
+            if delta < old_delta:
+                old_delta = delta
+                self.d_opt = _c.d
+
+        self.find_max()
+
+    def poly_fit(self, T, SNR, steps):
+        a, b, c = np.polyfit(T, SNR, deg=2)
+        x = np.linspace(T[0], T[-1], steps)
+        y = self.func_poly(x, a, b, c)
+        return x, y
+
+    def find_max(self):
+        for _c in self.curves:
+            try:
+                if _c.d == self.d_opt:
+                    x, y = self.poly_fit(_c.T, _c.SNR, 141)
+                    self.kV_opt = np.argmax(y)
+                    self.Y_opt = y[self.kV_opt]
+                    self.X_opt = x[self.kV_opt]
+            except:
+                print('No curve satisfies the condition _c.d==self.d_opt.')
+
+
 
 
     @staticmethod
@@ -204,16 +260,17 @@ class Activator:
                 linew = 3
             else:
                 data_size = 15
-                _alpha = 0.3
+                _alpha = 0.2
                 linew = 1
 
-            plt.scatter(_c.T, _c.SNR, label=f'{_c.d}mm', marker='o', c=col_red, s=data_size)              # raw data points
+            plt.scatter(_c.T, _c.SNR, label=f'{_c.d}mm', marker='o', alpha=_alpha, c=col_red, s=data_size)   # raw data points
             a, b, c = np.polyfit(_c.T, _c.SNR, deg=2)
             x = np.linspace(_c.T[0], _c.T[-1], 141)
             y = self.func_poly(x, a, b, c)
             plt.plot(x, y, c=col_red, alpha=_alpha, linewidth=linew)
 
 
+        plt.scatter(self.X_opt, self.Y_opt, marker='x', c='black', s=50)
         plt.title(f'$SRN(T)$ with $U_{0} = {self.U0}$kV       FIT: $f(x) = a x^{2} + bx + c$')
         plt.xlabel('Transmission a.u.')
         plt.ylabel('SNR/s')
