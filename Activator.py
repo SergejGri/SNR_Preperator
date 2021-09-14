@@ -13,15 +13,17 @@ class Scanner:
 
 
 class Curve:
-    def __init__(self, d:int, kV: list, T: list, SNR: list):
+    def __init__(self, d, kV: list, T: list, SNR: list):
         self.d = d
         self.kV = kV
         self.T = T
         self.SNR = SNR
-        self.fit_SNRT_x = []
-        self.fit_SNRT_y = []
-        self.kVT_x = []
-        self.kVT_y = []
+
+
+    def append_data(self, kV, T, SNR):
+        self.kV.append(kV)
+        self.T.append(T)
+        self.SNR.append(SNR)
 
 
 class Activator:
@@ -73,7 +75,7 @@ class Activator:
         # 2)    check the 'distance from U0 to the lower neighbour dist = self.U0 - l_neighbour
         dist, lb, rb = self.find_neighbours()
         step = rb - lb
-        db = DB(self.path_db)
+        #db = DB(self.path_db)
         for _curve in self.curves:
             # 1)    get left and right neighbours and interpolate between these values
             # 2)    append the values at given index to the c_U0x and c_U0_y
@@ -138,9 +140,12 @@ class Activator:
         #   3) calc the number of curves which needed to be created between first and second in respect to the step size
         #   4) take the first data point (SNR/kV) of the second curve and the first data point (SNR/kV) of the first curve
         #      and divide the abs between them into c_num + 1 pieces
+        #   5)
         step = 0.1
         db = DB(self.path_db)
         for i in range(len(self.ds)-1):
+            X = []
+            Y = []
 
             c_num = np.arange(self.ds[i], self.ds[i + 1], step)[1:]
             c_num = c_num[::-1]
@@ -153,10 +158,19 @@ class Activator:
                 f = interpolate.interp1d(_x, _y, kind='linear')
                 _x_new = np.linspace(T_2[j], T_1[j], len(c_num)+2)[1:-1]
                 _y_new = f(_x_new)
+                X.append(_x_new)
+                Y.append(_y_new)
 
-                for k in range(len(_x_new)):
-                    _d = c_num[k]
-                    db.add_data(d=_d, voltage=V_1[j], SNR=_y_new[k], T=_x_new[k], mode='virtual')
+            for k in range(len(c_num)):
+                _T = []
+                _SNR = []
+                _d = round(c_num[k], 2)
+                kV = V_1
+                for _j in range(len(T_1)):
+                    _T.append(X[_j][k])
+                    _SNR.append(Y[_j][k])
+                self.curves.append(Curve(d=_d, kV=kV, T=_T, SNR=_SNR))
+
 
     @staticmethod
     def func_linear(x, m, t):
@@ -165,6 +179,13 @@ class Activator:
     @staticmethod
     def func_poly(x, a, b, c):
         return a*x**2 + b*x + c
+
+    @staticmethod
+    def whole_num(num):
+        if num - int(num) == 0:
+            return True
+        else:
+            return False
 
     def plot_MAP(self):
         col_red = '#D56489'
@@ -176,22 +197,22 @@ class Activator:
         fig = plt.figure()
         ax = fig.add_subplot()
         for _c in self.curves:
-            V, T, SNR = db.read_data(_c.d, mode='fit')
-            plt.plot(T, SNR, c=col_red, alpha=0.9, linestyle='-', linewidth=3)
-            plt.scatter(_c.T, _c.SNR, label=f'{_c.d}mm', marker='o', c=col_red, s=40)              # raw data points
-            ax.text(_c.T[0]-0.05, _c.SNR[0], f'{_c.d}mm')
+            if self.whole_num(_c.d):
+                data_size = 40
+                ax.text(_c.T[0] - 0.05, _c.SNR[0], f'{_c.d}mm')
+                _alpha=0.9
+                linew = 3
+            else:
+                data_size = 15
+                _alpha = 0.3
+                linew = 1
 
-        for d in range(20):
-            try:
-                vV, vT, vSNR = db.read_data(d, mode='virtual')
-                plt.scatter(vT, vSNR, c=col_red, alpha=0.4, s=30)
-                a, b, c = np.polyfit(vT, vSNR, deg=2)
-                x = np.linspace(vT[0], vT[-1], 141)
-                y = self.func_poly(x, a, b, c)
-                plt.plot(x, y,  c=col_red, alpha=0.4)
-                ax.text(vT[0] - 0.05, vSNR[0], f'{d}mm')
-            except:
-                print(f'no data in table curve_vir_{d} exists. Trying next d.')
+            plt.scatter(_c.T, _c.SNR, label=f'{_c.d}mm', marker='o', c=col_red, s=data_size)              # raw data points
+            a, b, c = np.polyfit(_c.T, _c.SNR, deg=2)
+            x = np.linspace(_c.T[0], _c.T[-1], 141)
+            y = self.func_poly(x, a, b, c)
+            plt.plot(x, y, c=col_red, alpha=_alpha, linewidth=linew)
+
 
         plt.title(f'$SRN(T)$ with $U_{0} = {self.U0}$kV       FIT: $f(x) = a x^{2} + bx + c$')
         plt.xlabel('Transmission a.u.')
@@ -221,3 +242,7 @@ class Activator:
         plt.legend()
         plt.show()
         fig.savefig(os.path.join(path_res, 'SNR_kV_mod.pdf'), dpi=600)
+
+
+    def fit_2D(self):
+        pass
