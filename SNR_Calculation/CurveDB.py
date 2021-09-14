@@ -23,6 +23,7 @@ class DB:
         '''
         self.c = self.conn.cursor()
         d = str(d)
+
         if mode == 'raw':
             self.c.execute("CREATE TABLE IF NOT EXISTS curve_" + d + "(voltage REAL, T REAL, SNR REAL)")
             self.c.execute("SELECT T, SNR FROM curve_" + d + " WHERE T=? OR SNR=?", (T, SNR))
@@ -51,25 +52,30 @@ class DB:
                 with self.conn:
                     self.c.execute("INSERT INTO curve_vir_" + d + " VALUES (?, ?, ?)", (voltage, T, SNR))
 
+
     def read_data(self, d, mode=None):
         self.d = str(d)
         self.c = self.conn.cursor()
         table_exists = False
         if mode == 'raw':
-            if self.table_exists(f'curve_{self.d}'):
+            try:
                 self.c.execute("SELECT voltage, T, SNR FROM curve_" + self.d)
                 table_exists = True
+            except:
+                print('Table does not exists.')
         elif mode == 'fit':
-            if self.table_exists(f'curve_fit_{self.d}'):
+            try:
                 self.c.execute("SELECT voltage, T, SNR FROM curve_fit_" + self.d)
                 table_exists = True
+            except:
+                print('Table does not exists.')
         elif mode=='virtual':
-            if self.table_exists(f'curve_vir_{self.d}'):
+            try:
                 self.c.execute("SELECT voltage, T, SNR FROM curve_vir_" + self.d)
                 table_exists = True
-            else:
-                print(f'No data exists for {d}')
-                table_exists = False
+            except:
+                print('Table does not exists.')
+
         if table_exists == True:
             rows = self.c.fetchall()
             list_voltage = [x[0] for x in rows]
