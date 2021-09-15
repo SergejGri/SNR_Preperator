@@ -27,7 +27,7 @@ class Curve:
 
 
 class Activator:
-    def __init__(self, data_T: list, path_db: str, U0: int, ds: list):
+    def __init__(self, data_T: np.array, path_db: str, U0: int, ds: list):
         self.data_T = data_T
         self.min_T = self.get_min_T()
         self.path_db = path_db
@@ -42,14 +42,11 @@ class Activator:
         self.kVs = [40, 60, 80, 100, 120, 140, 160, 180]
         self.f_U0 = []
         self.x_U0 = []
-        self.x_SNR_T = []
-        self.y_SNR_T = []
         self.c_U0_x = []
         self.c_U0_y = []
-        self.intercept_x = 0
-        self.intercept_y = 0
-        self.virtual_xs = []
-        self.virtual_ys = []
+        self.intercept_x = None
+        self.intercept_y = None
+        self.intercept_found = False
         self.d_opt = None
         self.X_opt = None
         self.Y_opt = None
@@ -60,11 +57,11 @@ class Activator:
         self.load_db()
         self.interpolate_curve_piece()
         self.interpolate_U0()
-        #self.interpolate_curves_full()
         self.create_virtual_curves()
         self.find_intercept()
-        self.get_opt_SNR_curve()
-        self.plot_MAP()
+        if self.intercept_found == True:
+            self.get_opt_SNR_curve()
+        self.printer()
 
     def get_min_T(self):
         return np.min(self.data_T[1])
@@ -118,25 +115,11 @@ class Activator:
                 self.intercept_x = dummy_x_U0[i]
                 self.intercept_y = dummy_y[i]
                 print(f'intercept: ({round(self.intercept_x, 3)} , {round(self.intercept_y, 3)})')
+                self.intercept_found = True
                 break
-        if self.intercept_x == 0 and self.intercept_y == 0:
-            print('no intercept between U0 and min. T found. You may reduce the round digits at find_intercept()')
+        #if self.intercept_x == 0 and self.intercept_y == 0:
 
-    def find_neighbours(self):
-        # find first element in self.curves which where arg. > self.U0 ==> right border
-        # the nearest left entry is the left border between which the interpolation will take place
-        num = next(i[0] for i in enumerate(self.curves[0].kV) if i[1] >= self.U0)
-        neighbour_l = self.curves[0].kV[num-1]
-        neighbour_r = self.curves[0].kV[num]
-        dist = self.U0 - neighbour_l
-        return abs(int(dist)), int(neighbour_l), int(neighbour_r)
 
-    def interpolate_kVT(self):
-        dist, lb, rb = self.find_neighbours()
-        for i in range(lb, rb):
-            for _curve in self.curves:
-                self.curves[i].kVT_x.append(_curve.T[i])
-                self.curves[i].kVT_y.append(_curve.SNR[i])
 
     def create_virtual_curves(self):
         #   1) read first fitted curve from db
@@ -175,6 +158,24 @@ class Activator:
                 self.curves.append(Curve(d=_d, kV=kV, T=_T, SNR=_SNR))
 
 
+    def find_neighbours(self):
+        # find first element in self.curves which where arg. > self.U0 ==> right border
+        # the nearest left entry is the left border between which the interpolation will take place
+        num = next(i[0] for i in enumerate(self.curves[0].kV) if i[1] >= self.U0)
+        neighbour_l = self.curves[0].kV[num-1]
+        neighbour_r = self.curves[0].kV[num]
+        dist = self.U0 - neighbour_l
+        return abs(int(dist)), int(neighbour_l), int(neighbour_r)
+
+
+    '''def interpolate_kVT(self):
+        dist, lb, rb = self.find_neighbours()
+        for i in range(lb, rb):
+            for _curve in self.curves:
+                self.curves[i].kVT_x.append(_curve.T[i])
+                self.curves[i].kVT_y.append(_curve.SNR[i])'''
+
+
     def get_opt_SNR_curve(self):
         #   1) take the x and y value of T_min and find between curves are 'neighbours'
         #   2)  find min abs between x and y values of curves and intercept
@@ -195,7 +196,6 @@ class Activator:
 
             #   1) estimate the indeces which lays on the left and right side of intercept_x
             idx = np.argwhere(_x < self.intercept_x)
-            #rb = np.argwhere(_x > self.intercept_x)
             idx = idx.flatten()
             idx = idx[-1]
 
@@ -208,9 +208,9 @@ class Activator:
 
         self.find_max()
 
-    def poly_fit(self, T, SNR, steps):
-        a, b, c = np.polyfit(T, SNR, deg=2)
-        x = np.linspace(T[0], T[-1], steps)
+    def poly_fit(self, var_x, var_y, steps):
+        a, b, c = np.polyfit(var_x, var_y, deg=2)
+        x = np.linspace(var_x[0], var_x[-1], steps)
         y = self.func_poly(x, a, b, c)
         return x, y
 
@@ -219,13 +219,32 @@ class Activator:
             try:
                 if _c.d == self.d_opt:
                     x, y = self.poly_fit(_c.T, _c.SNR, 141)
-                    self.kV_opt = np.argmax(y)
-                    self.Y_opt = y[self.kV_opt]
-                    self.X_opt = x[self.kV_opt]
+                    kVx, kVy = self.poly_fit(_c.kV, _c.SNR, 141)
+                    idx = np.argmax(y)
+                    idxx = np.argmax(kVy)
+                    self.kV_opt = kVx[idxx]
+                    self.Y_opt = y[idx]
+                    self.X_opt = x[idx]
+                    print(f'idxx: {idxx}')
+                    print(f'kV[idxx]: {kVx[idxx]}')
+                    print(f'kV[0]: {_c.kV[0]}')
+                    print(f'kV[-1]: {_c.kV[-1]}')
+                    print(f'T[0]: {_c.T[0]}')
+                    print(f'T[-1]: {_c.T[-1]}')
+                    print('test')
             except:
                 print('No curve satisfies the condition _c.d==self.d_opt.')
 
 
+    def printer(self):
+        if self.intercept_found == True:
+            print(f'intercept min. T and U0: ({round(self.intercept_x, 3)} / {round(self.intercept_y, 3)})')
+            print(f'interpolated thickness at intercept (d_opt): {self.d_opt}')
+            print(f'y_max of interpolated d_opt curve (maximum SNR): {round(self.Y_opt, 3)}')
+            print('optimal voltage for measurement: ' + TerminalColor.BOLD + f'kV_opt = {self.kV_opt} kV' + TerminalColor.END)
+        else:
+            print('No intercept between U0 and T_min could be found. \n'
+                  '1) You may reduce the round digits at find_intercept()')
 
 
     @staticmethod
@@ -243,63 +262,15 @@ class Activator:
         else:
             return False
 
-    def plot_MAP(self):
-        col_red = '#D56489'
-        col_yellow = '#ECE6A6'
-        col_blue = '#009D9D'
-        col_green = '#41BA90'
-        path_res = r'C:\Users\Rechenfuchs\PycharmProjects\SNR_Preperator_new_approach'
-        db = DB(self.path_db)
-        fig = plt.figure()
-        ax = fig.add_subplot()
-        for _c in self.curves:
-            if self.whole_num(_c.d):
-                data_size = 40
-                ax.text(_c.T[0] - 0.05, _c.SNR[0], f'{_c.d}mm')
-                _alpha=0.9
-                linew = 3
-            else:
-                data_size = 15
-                _alpha = 0.2
-                linew = 1
 
-            plt.scatter(_c.T, _c.SNR, label=f'{_c.d}mm', marker='o', alpha=_alpha, c=col_red, s=data_size)   # raw data points
-            a, b, c = np.polyfit(_c.T, _c.SNR, deg=2)
-            x = np.linspace(_c.T[0], _c.T[-1], 141)
-            y = self.func_poly(x, a, b, c)
-            plt.plot(x, y, c=col_red, alpha=_alpha, linewidth=linew)
-
-
-        plt.scatter(self.X_opt, self.Y_opt, marker='x', c='black', s=50)
-        plt.title(f'$SRN(T)$ with $U_{0} = {self.U0}$kV       FIT: $f(x) = a x^{2} + bx + c$')
-        plt.xlabel('Transmission a.u.')
-        plt.ylabel('SNR/s')
-        plt.xlim(self.curves[-1].T[0] - 0.05, self.curves[0].T[-1] + 0.02)
-        plt.plot(self.c_U0_x, self.c_U0_y, c=col_green, linestyle='-', linewidth=2)                         # U0 curve
-        plt.axvline(x=self.min_T, c=col_green, linestyle='--', linewidth=1)
-        plt.scatter(self.intercept_x, self.intercept_y, c=col_red, marker='x', s=50)
-        plt.show()
-        fig.savefig(os.path.join(path_res, 'MAP_U0.pdf'), dpi=600)
-
-    def plot_SRN_kV(self):
-        path_res = r'C:\Users\Rechenfuchs\PycharmProjects\SNR_Preperator_new_approach'
-        fig = plt.figure()
-        ax1 = fig.add_subplot(111)
-        ax2 = ax1.twiny()
-        for _c in self.curves:
-            kV = _c.kV
-            SNR = _c.SNR
-            ax1.plot(kV, SNR, label=f'{_c.d}mm', marker='o')
-            ax2.plot(np.arange(0.0, 0.6, len(kV)), np.ones(100))
-            ax2.cla()
-            ax2.set_xlabel(r'T')
-        ax1.set_xlabel('Voltage $[kV]$')
-        ax2.set_xlabel('T')
-        ax1.set_ylabel('SNR/s')
-        plt.legend()
-        plt.show()
-        fig.savefig(os.path.join(path_res, 'SNR_kV_mod.pdf'), dpi=600)
-
-
-    def fit_2D(self):
-        pass
+class TerminalColor:
+   PURPLE = '\033[95m'
+   CYAN = '\033[96m'
+   DARKCYAN = '\033[36m'
+   BLUE = '\033[94m'
+   GREEN = '\033[92m'
+   YELLOW = '\033[93m'
+   RED = '\033[91m'
+   BOLD = '\033[1m'
+   UNDERLINE = '\033[4m'
+   END = '\033[0m'

@@ -5,6 +5,7 @@ import Activator as act
 from SNR_Calculation.Prepper import *
 from SNR_Calculation.SNRMapGenerator import *
 from SNR_Calculation.CurveDB import *
+import Plotter as PLT
 
 
 def create_report(_path):
@@ -78,12 +79,15 @@ def main():
 
 
     test_arr = np.array([[0, 11, 34, 56, 75, 80, 99, 131, 165, 178],
-                         [0.26, 0.35, 0.25, 0.27, 0.26, 0.31, 0.19, 0.52, 0.41, 0.45]])
+                         [0.26, 0.35, 0.25, 0.27, 0.26, 0.31, 0.222, 0.52, 0.41, 0.45]])
 
-    U0 = 55
+    U0 = 101
 
     activator = act.Activator(data_T=test_arr, path_db=path_result, U0=U0, ds=ds)
     activator()
+    PLT.Plotter().create_plot(path_result=path_result, act_object=activator)
+
+
 
 
 if __name__ == '__main__':
