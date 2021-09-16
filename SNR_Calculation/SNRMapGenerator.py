@@ -65,7 +65,6 @@ class SNRMapGenerator:
         arr = np.asarray(list_tot).T
         self.data_SNR = arr[arr[:, 0].argsort()]
 
-    # TODO: find a way to calculate the SNR between 150 and 250. At the moment just one value is used for 'mean' because no value fits the condition [150:250] naturally
     def _calc_data(self, file):
         l_bound = 150.0
         u_bound = 250.0

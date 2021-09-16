@@ -2,9 +2,9 @@ import gc
 import math
 import matplotlib.pyplot as plt
 from SNR_Calculation.CurveDB import *
-import numpy.polynomial.polynomial as poly
 from scipy import interpolate
 import numpy as np
+import Plotter as PLT
 
 
 class Scanner:
@@ -20,30 +20,27 @@ class Curve:
         self.SNR = SNR
 
 
-    def append_data(self, kV, T, SNR):
-        self.kV.append(kV)
-        self.T.append(T)
-        self.SNR.append(SNR)
-
-
 class Activator:
-    def __init__(self, data_T: np.array, path_db: str, U0: int, ds: list):
+    def __init__(self, data_T: np.array, path_db: str, U0: int, ds: list, create_plot: bool = True):
         self.data_T = data_T
-        self.min_T = self.get_min_T()
+        self.T_min = self.get_min_T()
         self.path_db = path_db
         self.curves = []
+        self.stop_exe = False
         if 40 <= U0 and U0 <= 190:
             self.U0 = U0
         else:
-            print(f'The adjust Voltage is out of range! U0 = {U0} \n...exit...' )
+            print(f'The adjust Voltage is out of range! U0 = {U0} \n'
+                  + PLT.TerminalColor.BOLD + '...exit...' + PLT.TerminalColor.END)
             self.stop_exe = True
+            return
         self.kV_interpolation = False
         self.ds = ds
         self.kVs = [40, 60, 80, 100, 120, 140, 160, 180]
-        self.f_U0 = []
-        self.x_U0 = []
-        self.c_U0_x = []
-        self.c_U0_y = []
+        self.x_U0_c = []
+        self.y_U0_c = []
+        self.x_U0_p = []
+        self.y_U0_p = []
         self.intercept_x = None
         self.intercept_y = None
         self.intercept_found = False
@@ -52,11 +49,12 @@ class Activator:
         self.Y_opt = None
         self.kV_opt = None
 
+        self.__call__(create_plot)
 
-    def __call__(self, *args, **kwargs):
+
+    def __call__(self, create_plot, *args, **kwargs):
         self.load_db()
         self.interpolate_curve_piece()
-        self.interpolate_U0()
         self.create_virtual_curves()
         self.find_intercept()
         if self.intercept_found == True:
@@ -66,17 +64,20 @@ class Activator:
     def get_min_T(self):
         return np.min(self.data_T[1])
 
+
     def load_db(self):
         db = DB(self.path_db)
         for d in self.ds:
             kV, T, SNR = db.read_data(d, mode='raw')                        # read curve
             self.curves.append(Curve(d=d, kV=kV, T=T, SNR=SNR))
 
+
     def interpolate_curve_piece(self):
         # 1)    interpolate SNR(T) curve in the given range of nearest neighbours
         # 2)    check the 'distance from U0 to the lower neighbour dist = self.U0 - l_neighbour
         dist, lb, rb = self.find_neighbours()
         step = rb - lb
+
         for _curve in self.curves:
             # 1)    get left and right neighbours and interpolate between these values
             # 2)    append the values at given index to the c_U0x and c_U0_y
@@ -85,40 +86,37 @@ class Activator:
             a, b, c = np.polyfit(_curve.T, _curve.SNR, deg=2)
             x_SNR_T = np.linspace(_curve.T[il], _curve.T[ir], step + 1)
             y_SNR_T = self.func_poly(x_SNR_T, a, b, c)
-            self.c_U0_x.append(x_SNR_T[dist])
-            self.c_U0_y.append(y_SNR_T[dist])
+            self.x_U0_p.append(x_SNR_T[dist])
+            self.y_U0_p.append(y_SNR_T[dist])
 
-    def interpolate_curves_full(self):
-        db = DB(self.path_db)
-        for _c in self.curves:
-            a, b, c = np.polyfit(_c.T, _c.SNR, deg=2)
-            x = np.linspace(_c.T[0], _c.T[-1], 141)
-            vol = np.linspace(_c.kV[0], _c.kV[-1], 141)
-            y = self.func_poly(x, a, b, c)
-            for i in range(len(x)):
-                db.add_data(d=_c.d, voltage=vol[i], SNR=y[i], T=x[i], mode='fit')
+        self.interpolate_U0()
+
 
     def interpolate_U0(self):
-        self.f_U0 = interpolate.interp1d(self.c_U0_x, self.c_U0_y, kind='linear')
-        self.x_U0 = np.linspace(self.c_U0_x[0], self.c_U0_x[-1], 141)
+        step = 10000
+        f_U0 = interpolate.interp1d(self.x_U0_p, self.y_U0_p, kind='linear')
+        self.x_U0_c = np.linspace(self.x_U0_p[0], self.x_U0_p[-1], step)
+        self.y_U0_c = f_U0(self.x_U0_c)
+
 
     def find_intercept(self):
+        # TODO: need a finally statement at the try/except block -> worst case is stopt the execution or pass 'standard values'?
+        # TODO: more robust idx calculation. Catching cases like 1 < len(idx). ->
         # create dummy function U0' with high sampling rate
         # find intercept with 'high precision'
         # searching for the x value where the U0x1 is greater than U0x0 for the first time
-        dummy_f_U0 = interpolate.interp1d(self.c_U0_x, self.c_U0_y, kind='linear')
-        dummy_x_U0 = np.linspace(self.c_U0_x[0], self.c_U0_x[-1], 10000)
-        dummy_y = dummy_f_U0(dummy_x_U0)
-
-        for i in range(len(dummy_x_U0)):
-            if self.min_T == round(dummy_x_U0[i], 4):
-                self.intercept_x = dummy_x_U0[i]
-                self.intercept_y = dummy_y[i]
-                print(f'intercept: ({round(self.intercept_x, 3)} , {round(self.intercept_y, 3)})')
-                self.intercept_found = True
-                break
-        #if self.intercept_x == 0 and self.intercept_y == 0:
-
+        try:
+            epsilon = 0.0005
+            idx = np.where(np.logical_and(self.x_U0_c > (self.T_min - epsilon),
+                                          self.x_U0_c < (self.T_min + epsilon)) == True)
+            self.intercept_x = self.T_min
+            self.intercept_y = self.y_U0_c[idx[0][0]]
+            print(f'x:{self.intercept_x}')
+            print(f'y:{self.intercept_y}')
+            self.intercept_found = True
+        except:
+            self.stop_exe = True
+            return
 
 
     def create_virtual_curves(self):
@@ -168,14 +166,6 @@ class Activator:
         return abs(int(dist)), int(neighbour_l), int(neighbour_r)
 
 
-    '''def interpolate_kVT(self):
-        dist, lb, rb = self.find_neighbours()
-        for i in range(lb, rb):
-            for _curve in self.curves:
-                self.curves[i].kVT_x.append(_curve.T[i])
-                self.curves[i].kVT_y.append(_curve.SNR[i])'''
-
-
     def get_opt_SNR_curve(self):
         #   1) take the x and y value of T_min and find between curves are 'neighbours'
         #   2)  find min abs between x and y values of curves and intercept
@@ -208,12 +198,6 @@ class Activator:
 
         self.find_max()
 
-    def poly_fit(self, var_x, var_y, steps):
-        a, b, c = np.polyfit(var_x, var_y, deg=2)
-        x = np.linspace(var_x[0], var_x[-1], steps)
-        y = self.func_poly(x, a, b, c)
-        return x, y
-
     def find_max(self):
         for _c in self.curves:
             try:
@@ -238,14 +222,24 @@ class Activator:
 
     def printer(self):
         if self.intercept_found == True:
-            print(f'intercept min. T and U0: ({round(self.intercept_x, 3)} / {round(self.intercept_y, 3)})')
-            print(f'interpolated thickness at intercept (d_opt): {self.d_opt}')
-            print(f'y_max of interpolated d_opt curve (maximum SNR): {round(self.Y_opt, 3)}')
-            print('optimal voltage for measurement: ' + TerminalColor.BOLD + f'kV_opt = {self.kV_opt} kV' + TerminalColor.END)
+            print(f'intercept T_min and U0:\n'
+                  f'({round(self.intercept_x, 3)} / {round(self.intercept_y, 3)})')
+            print(' ')
+            print(f'interpolated thickness at intercept (d_opt):\n'
+                  f'{self.d_opt}')
+            print(' ')
+            #print(f'y_max of interpolated d_opt curve (maximum SNR): {round(self.Y_opt, 3)}')
+            print('optimal voltage for measurement:\n'
+                  + PLT.TerminalColor.BOLD + f' ==> kV_opt = {self.kV_opt} kV <==' + PLT.TerminalColor.END + '\n')
         else:
             print('No intercept between U0 and T_min could be found. \n'
                   '1) You may reduce the round digits at find_intercept()')
 
+    def poly_fit(self, var_x, var_y, steps):
+        a, b, c = np.polyfit(var_x, var_y, deg=2)
+        x = np.linspace(var_x[0], var_x[-1], steps)
+        y = self.func_poly(x, a, b, c)
+        return x, y
 
     @staticmethod
     def func_linear(x, m, t):
@@ -261,16 +255,3 @@ class Activator:
             return True
         else:
             return False
-
-
-class TerminalColor:
-   PURPLE = '\033[95m'
-   CYAN = '\033[96m'
-   DARKCYAN = '\033[36m'
-   BLUE = '\033[94m'
-   GREEN = '\033[92m'
-   YELLOW = '\033[93m'
-   RED = '\033[91m'
-   BOLD = '\033[1m'
-   UNDERLINE = '\033[4m'
-   END = '\033[0m'
