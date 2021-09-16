@@ -106,13 +106,11 @@ class Activator:
         # find intercept with 'high precision'
         # searching for the x value where the U0x1 is greater than U0x0 for the first time
         try:
-            epsilon = 0.0005
+            epsilon = 0.00001
             idx = np.where(np.logical_and(self.x_U0_c > (self.T_min - epsilon),
                                           self.x_U0_c < (self.T_min + epsilon)) == True)
             self.intercept_x = self.T_min
             self.intercept_y = self.y_U0_c[idx[0][0]]
-            print(f'x:{self.intercept_x}')
-            print(f'y:{self.intercept_y}')
             self.intercept_found = True
         except:
             self.stop_exe = True
@@ -209,13 +207,6 @@ class Activator:
                     self.kV_opt = kVx[idxx]
                     self.Y_opt = y[idx]
                     self.X_opt = x[idx]
-                    print(f'idxx: {idxx}')
-                    print(f'kV[idxx]: {kVx[idxx]}')
-                    print(f'kV[0]: {_c.kV[0]}')
-                    print(f'kV[-1]: {_c.kV[-1]}')
-                    print(f'T[0]: {_c.T[0]}')
-                    print(f'T[-1]: {_c.T[-1]}')
-                    print('test')
             except:
                 print('No curve satisfies the condition _c.d==self.d_opt.')
 
@@ -233,7 +224,7 @@ class Activator:
                   + PLT.TerminalColor.BOLD + f' ==> kV_opt = {self.kV_opt} kV <==' + PLT.TerminalColor.END + '\n')
         else:
             print('No intercept between U0 and T_min could be found. \n'
-                  '1) You may reduce the round digits at find_intercept()')
+                  '-> You may reduce epsilon in find_intercept()')
 
     def poly_fit(self, var_x, var_y, steps):
         a, b, c = np.polyfit(var_x, var_y, deg=2)
