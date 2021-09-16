@@ -4,17 +4,14 @@ import numpy as np
 import Activator as act
 
 
+
 class Plotter:
-    col_red = '#D56489'
-    col_yellow = '#ECE6A6'
-    col_blue = '#009D9D'
-    col_green = '#41BA90'
-    def create_plot(self, path_result, act_object):
+    def create_plot(self, path_result: str, act_object, ds: list, Y_style: str = 'lin'):
         fig = plt.figure()
         ax = fig.add_subplot()
 
         for _c in act_object.curves:
-            if self.whole_num(_c.d):
+            if _c.d in ds:
                 data_size = 40
                 ax.text(_c.T[0] - 0.05, _c.SNR[0], f'{int(_c.d)}mm')
                 _alpha = 0.9
@@ -24,24 +21,24 @@ class Plotter:
                 _alpha = 0.2
                 linew = 1
 
-            plt.scatter(_c.T, _c.SNR, label=f'{_c.d}mm', marker='o', alpha=_alpha, c=col_red, s=data_size)
+            plt.scatter(_c.T, _c.SNR, label=f'{_c.d}mm', marker='o', alpha=_alpha, c=TerminalColor.flat_red, s=data_size)
             a, b, c = np.polyfit(_c.T, _c.SNR, deg=2)
             x = np.linspace(_c.T[0], _c.T[-1], 141)
             y = self.func_poly(x, a, b, c)
-            plt.plot(x, y, c=self.col_red, alpha=_alpha, linewidth=linew)
+            plt.plot(x, y, c=TerminalColor.flat_red, alpha=_alpha, linewidth=linew)
 
         ax.text(0, 0, '$kV_opt = {}$'.format(act_object.kV_opt))
-        plt.scatter( act_object.X_opt, act_object.Y_opt, marker='x', c='black', s=70)
+        plt.scatter(act_object.X_opt, act_object.Y_opt, marker='x', c='black', s=70)
         plt.title(f'$SRN(T)$ with $U_{0} = {act_object.U0}$kV       FIT: $f(x) = a x^{2} + bx + c$')
         plt.xlabel('Transmission a.u.')
         plt.ylabel('SNR/s')
         plt.xlim(act_object.curves[-1].T[0] - 0.05, act_object.curves[0].T[-1] + 0.02)
-        plt.plot(act_object.c_U0_x, act_object.c_U0_y, c=col_green, linestyle='-', linewidth=2)
-        plt.axvline(x=act_object.min_T, c=col_green, linestyle='--', linewidth=1)
-        plt.scatter(act_object.intercept_x, act_object.intercept_y, c=col_red, marker='x', s=50)
+        plt.plot(act_object.x_U0_c, act_object.y_U0_c, c=TerminalColor.flat_green, linestyle='-', linewidth=2)
+        plt.axvline(x=act_object.T_min, c=TerminalColor.flat_green, linestyle='--', linewidth=1)
+        plt.scatter(act_object.intercept_x, act_object.intercept_y, c=TerminalColor.flat_red, marker='x', s=50)
+        plt.yscale(Y_style)
         plt.show()
         fig.savefig(os.path.join(path_result, f'MAP_kVopt{act_object.kV_opt}.pdf'), dpi=600)
-
 
     @staticmethod
     def func_poly(x, a, b, c):
@@ -53,3 +50,21 @@ class Plotter:
             return True
         else:
             return False
+
+
+class TerminalColor:
+    PURPLE = '\033[95m'
+    CYAN = '\033[96m'
+    DARKCYAN = '\033[36m'
+    BLUE = '\033[94m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+    END = '\033[0m'
+
+    flat_red = '#D56489'
+    flat_yellow = '#ECE6A6'
+    flat_blue = '#009D9D'
+    flat_green = '#41BA90'
