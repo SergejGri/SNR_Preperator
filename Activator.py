@@ -182,10 +182,9 @@ class Activator:
             _c = watch_curves[i]
             _x, _y = self.poly_fit(_c.T, _c.SNR, 10000)
 
-            #   1) estimate the indeces which lays on the left and right side of intercept_x
-            idx = np.argwhere(_x < self.intercept_x)
-            idx = idx.flatten()
-            idx = idx[-1]
+
+            #   1) estimate the nearest interpolated x values to the intercept_x
+            idx = (np.abs(_x - self.T_min)).argmin()
 
             delta = abs(_y[idx] - self.intercept_y)
             if old_delta is None:
