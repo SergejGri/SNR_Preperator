@@ -1,10 +1,14 @@
 from cycler import cycler
 import matplotlib.gridspec as gridspec
+import matplotlib as plt
+
+import SNR_Calculation.Prepper
 from SNR_Calculation.CurveDB import *
+from SNR_Calculation.Prepper import SNRMapGenerator
 
 
 class Plotter:
-    def create_plot(self, path_result: str, act_object, ds: list, Y_style: str = 'lin'):
+    def create_plot_v1(self, path_result: str, act_object, ds: list, Y_style: str = 'log'):
         fig = plt.figure()
         ax = fig.add_subplot()
 
@@ -43,10 +47,54 @@ class Plotter:
         fig.savefig(os.path.join(path_result, f'MAP_kVopt{act_object.kV_opt}.pdf'), dpi=600)
 
 
+    def create_MAP_plot(self, path_result: str, object, Y_style: str = 'log'):
+        fig = plt.figure()
+
+        for d in [2, 4, 6, 8]:
+            curve = f'{d}_mm'
+            plt.plot(object[0][curve]['T'], object[0][curve]['SNR'], linestyle='-', label=curve)
+            plt.scatter(object[0][curve]['T'], object[0][curve]['SNR'], marker='o',)
+        plt.legend()
+        plt.yscale(Y_style)
+        plt.xlabel('Transmission a.u.')
+        plt.ylabel('SNR/s')
+        plt.show()
+        fig.savefig(os.path.join(path_result, f'MAP_init_ROI_{object[1][0]-object[1][1]}.pdf'), dpi=600)
+        print('test')
+
+
+    def create_evolution_plot(self,path_snr:str, path_T:str, path_result: str, object: object, d: int, spatial_list: list = None, Y_style: str = 'log'):
+        if spatial_list is not None:
+            sizes = spatial_list
+        else:
+            sizes = [250, 150, 100, 50, 10]
+
+        base_MAP = SNRMapGenerator(path_snr=path_snr, path_T=path_T, path_fin=path_result, d=[d])
+
+        MAP_dict = {}
+        for spt_s in sizes:
+            MAP_dict[f'{spt_s} mm'] = base_MAP.create_MAP(spatial_range=spt_s)
+
+        fig = plt.figure()
+        for _s in sizes:
+            curve = f'{d}_mm'
+
+            plt.plot()
+            plt.plot(object[0][curve]['T'], object[0][curve]['SNR'], linestyle='-', label=curve)
+            plt.scatter(object[0][curve]['T'], object[0][curve]['SNR'], marker='o', )
+        plt.legend()
+        plt.yscale(Y_style)
+        plt.xlabel('Transmission a.u.')
+        plt.ylabel('SNR/s')
+        plt.show()
+        fig.savefig(os.path.join(path_result, f'MAP_init_ROI_{object[1][0] - object[1][1]}.pdf'), dpi=600)
+        print('test')
+
+
 
     def compare_plot(self):
         '''
-        Method for comparing of measurements
+        Method for comparing of data from different measurements
         '''
 
         plt.rc('lines', linewidth=2)
@@ -59,23 +107,25 @@ class Plotter:
         ax1 = plt.subplot(gs[1:, 0])
         ax2 = plt.subplot(gs[:, 1:])
 
-
-        path1 = r'C:\Users\Rechenfuchs\PycharmProjects\SNR_Preperator_new_approach'
-        path2 = r'C:\Users\Rechenfuchs\PycharmProjects\SNR_Preperator'
+        path1 = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\2021-08-30_Evaluation\Eval_Result'
+        path2 = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\2021-09-18_Evaluation\Eval_Result'
 
         db1 = DB(path1)
         db2 = DB(path2)
 
         ds = [1, 4, 5, 8, 9]
+        colors = ['r', 'g', 'b', 'y', 'm']
+        for _d, color in zip(ds, colors):
+            old_alpha = 0.2
+            new_alpha = 1.0
 
-        for _d in ds:
             V_1, T_1, SNR_1 = db1.read_data(d=_d, mode='raw')
             V_2, T_2, SNR_2 = db2.read_data(d=_d, mode='raw')
 
-            ax0.scatter(T_1, SNR_1, marker='x', s=50, label=f'{_d}mm old')
-            ax1.scatter(T_2, SNR_2, marker='x', s=50, label=f'{_d}mm new')
-            ax2.scatter(T_1, SNR_1, marker='x', s=50)
-            ax2.scatter(T_2, SNR_2, marker='x', s=50)
+            ax0.scatter(T_1, SNR_1, marker='x', s=40, alpha=old_alpha)
+            ax1.scatter(T_2, SNR_2, marker='x', s=40, label=f'{_d}mm new')
+            ax2.scatter(T_1, SNR_1, marker='x', s=40, c=color, alpha=old_alpha)
+            ax2.scatter(T_2, SNR_2, marker='x', s=40, c=color, alpha=new_alpha)
 
 
             a_1, b_1, c_1 = np.polyfit(T_1, SNR_1, deg=2)
@@ -86,29 +136,41 @@ class Plotter:
             x_2 = np.linspace(T_2[0], T_2[-1], 141)
             y_2 = self.func_poly(x_2, a_2, b_2, c_2)
 
-            ax0.plot(x_1, y_1)
+            ax0.plot(x_1, y_1, alpha=0.5)
             ax1.plot(x_2, y_2)
-            ax2.plot(x_1, y_1, x_2, y_2)
+            ax2.plot(x_1, y_1, c=color, alpha=old_alpha)
+            ax2.plot(x_2, y_2, c=color, label=f'{_d}mm')
 
-        ax0.grid()
+        #ax0.grid()
         ax0.set_title('Measurement @ 30.08.2021')
+        ax0.tick_params(which='major', direction='in', width=1.2, length=6)
+        ax0.tick_params(which='minor', direction='in', width=1.2, length=2.5)
         ax0.set_yscale('log')
 
         ax1.grid()
         ax1.set_title('Measurement @ 17.09.2021')
+        ax1.tick_params(which='major', direction='in', width=1.2, length=6)
+        ax1.tick_params(which='minor', direction='in', width=1.2, length=2.5)
         ax1.set_yscale('log')
 
-        ax2.grid()
+        #ax2.grid()
         ax2.set_title('30.08.2021 + 17.09.2021')
+        ax2.tick_params(which='major', direction='in', width=1.2, length=6)
+        ax2.tick_params(which='minor', direction='in', width=1.2, length=2.5)
+        ax2.legend()
         ax2.set_yscale('log')
+
+
+        for axis in ['top', 'bottom', 'left', 'right']:
+            ax0.spines[axis].set_linewidth(1.2)
+            ax1.spines[axis].set_linewidth(1.2)
+            ax2.spines[axis].set_linewidth(1.2)
 
         plt.legend()
         plt.tight_layout()
-        fig.subplots_adjust(hspace=0.4)
+        fig.subplots_adjust(hspace=0.3)
         plt.show()
         fig.savefig(os.path.join(path2, f'MAP_compare.pdf'), dpi=600)
-
-
 
     @staticmethod
     def func_poly(x, a, b, c):
@@ -120,6 +182,204 @@ class Plotter:
             return True
         else:
             return False
+
+
+def sandpaper_test():
+    #plt.rc('font', **{'family': 'serif', 'serif': ['Palatino']})
+    plt.rc('text', usetex=True)
+    plt.rc('lines', linewidth=2)
+    plt.rc('axes', prop_cycle=(cycler("color", ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"])))
+    plt.rcParams['axes.xmargin'] = 0
+
+    gs = gridspec.GridSpec(8, 8)
+    fig = plt.figure(figsize=(12,5))
+    ax1 = plt.subplot(gs[:7, :4])
+    ax2 = plt.subplot(gs[:7, 4:])
+
+    lbl_size = 12                   # label font size
+    ttl_size = 15                   # title font size
+    axs_size = 13                   # axis font size
+    lgnd_size = 11                  # legend font size
+    _w = 1.5                        # plot border width
+
+
+    file_1 = r"C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-09-27-Sergej_SNR-Stufenkeil_130proj_6W_Sndppr-test\new_approach\2xP600-2xP240-2xP80\2021-9-28_SNR\100kV\SNR_100kV_2_mm_expTime_365.txt"
+    file_2 = r"C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-09-27-Sergej_SNR-Stufenkeil_130proj_6W_Sndppr-test\new_approach\4xP5000-2xP600-2xP240-2xP80\2021-9-28_SNR\100kV\SNR_100kV_2_mm_expTime_365.txt"
+    file_3 = r"C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-09-27-Sergej_SNR-Stufenkeil_130proj_6W_Sndppr-test\new_approach\4xP80\2021-9-28_SNR\100kV\SNR_100kV_2_mm_expTime_365.txt"
+    file_4 = r"C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-09-27-Sergej_SNR-Stufenkeil_130proj_6W_Sndppr-test\new_approach\without-sandpaper\2021-9-28_SNR\100kV\SNR_100kV_2_mm_expTime_365.txt"
+
+    file_1_1 = r"C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-09-30-Sergej_SNR-Stufenkeil_200proj_6W_Sndppr-test\2xP600-2xP240-2xP80\2021-9-30_SNR\100kV\SNR_100kV_4_mm_expTime_375.txt"
+    #file_2_2 = r"C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-09-27-Sergej_SNR-Stufenkeil_130proj_6W_Sndppr-test\new_approach\4xP5000-2xP600-2xP240-2xP80\2021-9-28_SNR\100kV\SNR_100kV_4_mm_expTime_365.txt"
+    file_3_3 = r"C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-09-30-Sergej_SNR-Stufenkeil_200proj_6W_Sndppr-test\4xP80\2021-9-30_SNR\100kV\SNR_100kV_4_mm_expTime_375.txt"
+    file_4_4 = r"C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-09-27-Sergej_SNR-Stufenkeil_130proj_6W_Sndppr-test\new_approach\without-sandpaper\2021-9-28_SNR\100kV\SNR_100kV_4_mm_expTime_365.txt"
+    file_5_5 = r"C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-09-30-Sergej_SNR-Stufenkeil_200proj_6W_Sndppr-test\4xP240\2021-9-30_SNR\100kV\SNR_100kV_4_mm_expTime_375.txt"
+
+    path_save = r"C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-09-27-Sergej_SNR-Stufenkeil_130proj_6W_Sndppr-test\new_approach"
+    if not os.path.exists(path_save):
+        os.makedirs(path_save)
+
+    _d = 4
+    param_1 = r'2xP600-2xP240-2xP80'
+    param_2 = r'4xP5000-2xP600-2xP240-2xP80'
+    param_3 = r'4xP80'
+    param_4 = r'without sandpaper'
+    param_5 = r'4xP240'
+
+
+    file_1 = np.genfromtxt(file_1, dtype=float, skip_header=3)
+    file_2 = np.genfromtxt(file_2, dtype=float, skip_header=3)
+    file_3 = np.genfromtxt(file_3, dtype=float, skip_header=3)
+    file_4 = np.genfromtxt(file_4, dtype=float, skip_header=3)
+
+    file_1_1 = np.genfromtxt(file_1_1, dtype=float, skip_header=3)
+    #file_2_2 = np.genfromtxt(file_2_2, dtype=float, skip_header=3)
+    file_3_3 = np.genfromtxt(file_3_3, dtype=float, skip_header=3)
+    file_4_4 = np.genfromtxt(file_4_4, dtype=float, skip_header=3)
+    file_5_5 = np.genfromtxt(file_5_5, dtype=float, skip_header=3)
+
+    u = file_1[:, 0]
+    X_1 = file_1[:, 0]
+    #X_1 = 1 / (2 * u)
+
+    #ax1_2 = ax1.twiny()
+    #ax1Ticks = ax1.get_xticks()
+    #ax1Ticks = ax1Ticks[1:]
+
+    #ax2_2 = ax2.twiny()
+    #ax2Ticks = ax2.get_xticks()
+    #ax2_2Ticks = ax2Ticks[1:]
+
+
+    def tick_function(x):
+        Xx = 1 / (2 * x*10**(-1))
+        return ["%.2f" % z for z in Xx]
+
+    #ax1.set_xticks(ax1Ticks)
+    #ax1.set_xbound(ax1.get_xbound())
+    #ax1.set_xticklabels(tick_function(ax1Ticks))
+
+    #ax2_2.set_xticks(ax2_2Ticks)
+    #ax2_2.set_xbound(ax2.get_xbound())
+    #ax2_2.set_xticklabels(tick_function(ax2_2Ticks))
+
+    Y_1 = file_1[:, 1]
+    Y_2 = file_2[:, 1]
+    Y_3 = file_3[:, 1]
+    Y_4 = file_4[:, 1]
+
+    Y_1_1 = file_1_1[:, 1]
+    #Y_2_2 = file_2_2[:, 1]
+    Y_3_3 = file_3_3[:, 1]
+    Y_4_4 = file_4_4[:, 1]
+    Y_5_5 = file_5_5[:, 1]
+
+    ax1.plot(X_1, Y_1)
+    ax1.plot(X_1, Y_2)
+    ax1.plot(X_1, Y_3)
+    ax1.plot(X_1, Y_4, linestyle='--')
+    ax1.set_ylim([10**(-4), 10**(0)])
+
+    ax2.plot(X_1, Y_1_1, label=f'{param_1}')
+    #ax2.plot(X_1, Y_2_2, label=f'{param_2}')
+    ax2.plot(X_1, Y_3_3, label=f'{param_3}')
+    ax2.plot(X_1, Y_4_4, label=f'{param_4}', linestyle='--')
+    ax2.plot(X_1, Y_5_5, label=f'{param_5}')
+    ax2.set_ylim([10 ** (-4), 10 ** (0)])
+
+    ax3 = plt.axes([0.26, 0.56, .2, .35])
+    ax3.plot(X_1, Y_1)
+    ax3.plot(X_1, Y_2)
+    ax3.plot(X_1, Y_3)
+    ax3.plot(X_1, Y_4, linestyle='--')
+    plt.setp(ax3)
+    ax3.set_xlim([0.0, 0.015])
+    ax3.set_ylim([50**(-2), 10**(0)])
+
+    ax4 = plt.axes([0.771, 0.56, .2, .35])
+    ax4.plot(X_1, Y_1_1)
+    #ax4.plot(X_1, Y_2_2)
+    ax4.plot(X_1, Y_3_3)
+    ax4.plot(X_1, Y_4_4, linestyle='--')
+    ax4.plot(X_1, Y_5_5)
+    plt.setp(ax4)
+    ax4.set_xlim([0.0, 0.02])
+    ax4.set_ylim([10 ** (-3), 10 ** (0)])
+
+
+    ax1.set_title(f'2 mm Al @ 100 kV', fontsize=ttl_size, weight='bold')
+    ax1.tick_params(which='major', direction='in', width=_w, length=6, labelsize=lbl_size)
+    ax1.tick_params(which='minor', direction='in', width=_w, length=3)
+    ax1.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
+    ax1.set_ylabel('SNR$\cdot s^{-1}$', fontsize=axs_size)
+    ax1.set_xlabel('spatial frequency', fontsize=axs_size)
+    ax1.set_yscale('log')
+
+    ax2.set_title(f'4 mm Al @ 100 kV', fontsize=ttl_size, weight='bold')
+    ax2.tick_params(which='major', direction='in', width=_w, length=6, labelsize=lbl_size)
+    ax2.tick_params(which='minor', direction='in', width=_w, length=3)
+    ax2.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
+    ax2.set_ylabel('SNR$\cdot s^{-1}$', fontsize=axs_size)
+    ax2.set_xlabel('spatial frequency', fontsize=axs_size)
+    ax2.legend(fontsize=lgnd_size, loc='center right', bbox_to_anchor=(0.97, 0.35))
+    ax2.set_yscale('log')
+
+    ax3.tick_params(which='major', direction='in', width=_w, length=6, labelsize=lbl_size)
+    ax3.tick_params(which='minor', direction='in', width=_w, length=3)
+    ax3.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
+    ax3.set_yscale('log')
+
+    ax4.tick_params(which='major', direction='in', width=_w, length=6, labelsize=lbl_size)
+    ax4.tick_params(which='minor', direction='in', width=_w, length=3)
+    ax4.ticklabel_format(style='sci', axis='both', scilimits=(0, 0))
+    ax4.set_yscale('log')
+
+    for axis in ['top', 'bottom', 'left', 'right']:
+        ax1.spines[axis].set_linewidth(_w)
+        #ax1_2.spines[axis].set_linewidth(_w)
+        ax2.spines[axis].set_linewidth(_w)
+        #ax2_2.spines[axis].set_linewidth(_w)
+        ax3.spines[axis].set_linewidth(_w)
+        ax4.spines[axis].set_linewidth(_w)
+
+    fig.tight_layout(rect=(0, 0, 1, 1), pad=0.3)
+    fig.subplots_adjust(wspace=2.5, hspace=1.5)
+    plt.show()
+    fig.savefig(os.path.join(path_save, f'Compare_2mm-4mm_100kV.pdf'), dpi=600)
+
+
+def focal_point():
+    path_save = r"C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\Brennfleck"
+    if not os.path.exists(path_save):
+        os.makedirs(path_save)
+    file_1 = r"C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-09-28_Brennfleck\1W\2021-9-30_SNR\100kV\SNR_100kV_4_mm_expTime_2250.txt"
+    file_2 = r"C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-09-28_Brennfleck\6W\2021-9-30_SNR\100kV\SNR_100kV_4_mm_expTime_375.txt"
+
+    file_1 = np.genfromtxt(file_1, dtype=float, skip_header=3)
+    file_2 = np.genfromtxt(file_2, dtype=float, skip_header=3)
+
+
+    X = file_1[:, 0]
+    Y_1 = file_1[:, 1]
+    Y_2 = file_2[:, 1]
+
+    fig = plt.figure()
+    plt.semilogy(X, Y_1, label='1W $t_{exp} = 2250$ms')
+    plt.semilogy(X, Y_2, label='6W $t_{exp} = 375$ms')
+    plt.xlim(0, 0.1)
+    plt.title(f'Compare of 1W and 6W SNR/s')
+    plt.xlabel('spatial frequency')
+    plt.ylabel('SNR $\cdot s^{-1}$')
+    plt.legend()
+    plt.show()
+    fig.savefig(os.path.join(path_save, f'compare_1W_6W.pdf'), dpi=600)
+
+
+
+def get_color_ls(index):
+    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    color = colors[index%len(colors)]
+    ls = ['-', '--', ':'][(index//len(colors)) % 3]
+    return color, ls
 
 
 class TerminalColor:

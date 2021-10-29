@@ -1,6 +1,8 @@
 import gc
 import math
 import matplotlib.pyplot as plt
+from scipy.interpolate import interp2d
+
 from SNR_Calculation.CurveDB import *
 from scipy import interpolate
 import numpy as np
@@ -27,7 +29,7 @@ class Activator:
         self.path_db = path_db
         self.curves = []
         self.stop_exe = False
-        if 40 <= U0 and U0 <= 190:
+        if 40 <= U0 and U0 <= 180:
             self.U0 = U0
         else:
             print(f'The adjust Voltage is out of range! U0 = {U0} \n'
@@ -51,7 +53,6 @@ class Activator:
 
         self.__call__(create_plot)
 
-
     def __call__(self, create_plot, *args, **kwargs):
         self.load_db()
         self.interpolate_curve_piece()
@@ -64,13 +65,11 @@ class Activator:
     def get_min_T(self):
         return np.min(self.data_T[1])
 
-
     def load_db(self):
         db = DB(self.path_db)
         for d in self.ds:
             kV, T, SNR = db.read_data(d, mode='raw')                        # read curve
             self.curves.append(Curve(d=d, kV=kV, T=T, SNR=SNR))
-
 
     def interpolate_curve_piece(self):
         # 1)    interpolate SNR(T) curve in the given range of nearest neighbours
@@ -91,13 +90,11 @@ class Activator:
 
         self.interpolate_U0()
 
-
     def interpolate_U0(self):
         step = 10000
         f_U0 = interpolate.interp1d(self.x_U0_p, self.y_U0_p, kind='linear')
         self.x_U0_c = np.linspace(self.x_U0_p[0], self.x_U0_p[-1], step)
         self.y_U0_c = f_U0(self.x_U0_c)
-
 
     def find_intercept(self):
         # TODO: need a finally statement at the try/except block -> worst case is stopt the execution or pass 'standard values'?
@@ -116,13 +113,22 @@ class Activator:
             self.stop_exe = True
             return
 
-
     def create_virtual_curves(self):
-        #   1) read first fitted curve from db
+        #   1) read first curve from db
         #   2) read second curve from db
         #   3) calc the number of curves which needed to be created between first and second in respect to the step size
         #   4) take the first data point (SNR/kV) of the second curve and the first data point (SNR/kV) of the first curve
         #      and divide the abs between them into c_num + 1 pieces
+
+        '''
+        c30 = np.array([[29.58, 10992.90], [34.06, 10488.35], [36.53, 10166.76], [38.92, 9836.60], [41.99, 9298.52], [45.13, 8708.54], [47.68, 8153.57], [49.34, 7768.64], [50.30, 7546.69]])
+        c45 = np.array([[26.79, 10598.67], [28.89, 10282.69], [30.99, 9962.94], [33.09, 9622.18], [35.18, 9220.9], [37.28, 8773.75], [39.38, 8311.88], [41.48, 7836.1], [43.58, 7344.26]])
+        c60 = np.array([[24.44, 9518.93], [25.81, 9231.69], [27.17, 8919.78], [28.54, 8576.69], [29.9, 8213.69], [31.27, 7841.51], [32.64, 7437.91], [34., 7004.48], [35.37, 6569.1]])
+
+        c44_3 = ((44.3 - 30) * c45 + (45 - 44.3) * c30) / (45 - 30)
+        c71_5 = ((71.5 - 45) * c60 + (60 - 71.5) * c45) / (60 - 45)
+        '''
+
         step = 0.1
         db = DB(self.path_db)
         for i in range(len(self.ds)-1):
@@ -153,7 +159,6 @@ class Activator:
                     _SNR.append(Y[_j][k])
                 self.curves.append(Curve(d=_d, kV=kV, T=_T, SNR=_SNR))
 
-
     def find_neighbours(self):
         # find first element in self.curves which where arg. > self.U0 ==> right border
         # the nearest left entry is the left border between which the interpolation will take place
@@ -162,7 +167,6 @@ class Activator:
         neighbour_r = self.curves[0].kV[num]
         dist = self.U0 - neighbour_l
         return abs(int(dist)), int(neighbour_l), int(neighbour_r)
-
 
     def get_opt_SNR_curve(self):
         #   1) take the x and y value of T_min and find between curves are 'neighbours'
@@ -209,6 +213,14 @@ class Activator:
             except:
                 print('No curve satisfies the condition _c.d==self.d_opt.')
 
+    def search_nearest_curve(self):
+        # 1) accept transmission array from fast_ct() t_arr = [[p1, p2,..], [T1, T2 ..]]
+        # 2) translate from T(proj) to d. There is a need in continuous d values
+        pass
+
+    def t_exp_calc(self):
+        pass
+
 
     def printer(self):
         if self.intercept_found == True:
@@ -218,7 +230,6 @@ class Activator:
             print(f'interpolated thickness at intercept (d_opt):\n'
                   f'{self.d_opt}')
             print(' ')
-            #print(f'y_max of interpolated d_opt curve (maximum SNR): {round(self.Y_opt, 3)}')
             print('optimal voltage for measurement:\n'
                   + PLT.TerminalColor.BOLD + f' ==> kV_opt = {self.kV_opt} kV <==' + PLT.TerminalColor.END + '\n')
         else:
@@ -230,6 +241,7 @@ class Activator:
         x = np.linspace(var_x[0], var_x[-1], steps)
         y = self.func_poly(x, a, b, c)
         return x, y
+
 
     @staticmethod
     def func_linear(x, m, t):

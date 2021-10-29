@@ -1,6 +1,6 @@
 import externe_files.SNR_spectra
+from SNR_Calculation.Calculator import *
 from SNR_Calculation.Prepper import *
-from SNR_Calculation.SNRMapGenerator import *
 from SNR_Calculation.CurveDB import *
 import datetime
 import os
@@ -41,22 +41,24 @@ def man_SNR_eval_single():
 
     img_shape = (1536, 1944)
     header = 2048
-    M = 18.3768
+    M = 18.3834
     watt = 6
-    pixel_size = 4.07033
+    pixel_size = 4.0689
     pixel_size_units = '$\mu m$'
     nbins = 300
-    path_map = r''
+    px_map = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\BAD-PIXEL-bin1x1-scans-MetRIC.tif'
 
-    dirs = ['140kV', '160kV', '180kV']
-    thicknesses = ['2']
+    dirs = ['100kV']
+    thicknesses = ['4u8']
     for dir in dirs:
         figure = None
         for d in thicknesses:
-            path_to_data = fr'\\132.187.193.8\junk\sgrischagin\2021-08-26-Sergej_SNR-Stufenkeil_130proj_6W\{dir}\{d}'
-            path_to_refs = fr'\\132.187.193.8\junk\sgrischagin\2021-08-26-Sergej_SNR-Stufenkeil_130proj_6W\{dir}\refs'
-            path_to_darks = fr'\\132.187.193.8\junk\sgrischagin\2021-08-26-Sergej_SNR-Stufenkeil_130proj_6W\{dir}\darks'
-            path_to_result = fr'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\{_date}\SNR'
+            base_path = r'\\132.187.193.8\junk\sgrischagin\2021-09-21-Sergej_SNR-Stufenkeil_130proj_P1200P600MIX_6W'
+            path_to_data = os.path.join(base_path, dir, d)
+            path_to_refs = os.path.join(base_path, dir, 'refs')
+            path_to_darks = os.path.join(base_path, dir, 'darks')
+            _str = base_path.split('sgrischagin\\')[1]
+            path_to_result = os.path.join(r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR', _str)
             if not os.path.isdir(path_to_result):
                 os.makedirs(path_to_result)
 
@@ -65,8 +67,8 @@ def man_SNR_eval_single():
             darks = file.volume.Reader(path_to_darks, mode='raw', shape=img_shape, header=header).load_all()
 
 
-            view_left = slice(0, 129), slice(130, 1370), slice(250, 750)
-            map_slice = slice(None, None), slice(130, 1370), slice(250, 750)
+            view_left = slice(0, 130), slice(100, 1440), slice(100, 800)
+            map_slice = slice(0, 1), slice(100, 1440), slice(100, 800)
 
             SNR_eval = SNR_Evaluator()
             filterer_l = ImageSeriesPixelArtifactFilterer()
@@ -265,9 +267,6 @@ def man_T_eval_multi():
                 f_r.close()
 
 
-def main():
-    man_T_eval_single()
-
 
 if __name__ == '__main__':
-    main()
+    man_SNR_eval_single()

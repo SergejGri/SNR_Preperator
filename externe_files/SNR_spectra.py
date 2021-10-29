@@ -401,14 +401,21 @@ estimate_SNR.__doc__ = SNR_Evaluator.estimate_SNR.__doc__
 #  ======= remove pixel series artifacts =======
 class ImageSeriesPixelArtifactFilterer:
     ''' class to filter pixel defects for use with SNR_Estimator '''
-    verbose = False
 
-    speckle_std_threshold = 5
+    # default: verbose = False
+    # default: speckle_std_threshold = 5
+    # default: speckle_iterations = 2
+    # default: speckle_warn_fraction = 0.01
+    verbose = True
+    speckle_std_threshold = 2.6
     speckle_iterations = 2
     speckle_warn_fraction = 0.01
 
-    defect_size = 2
-    defect_threshold = 0.3  # ONLY fitting for [0,1]-data (normalized absorption measurement)
+    # default: defect_size = 2
+    # default: defect_threshold = 0.3
+    # default: efect_warn_fraction = 0.01
+    defect_size = 1
+    defect_threshold = 0.2  # ONLY fitting for [0,1]-data (normalized absorption measurement)
     defect_warn_fraction = 0.01
 
     def __init__(self, filter_defects=True, filter_speckles=True, remove_nonfinite=True, bad_pixel_map=None):
@@ -437,6 +444,8 @@ class ImageSeriesPixelArtifactFilterer:
         self.bad_pixel_map = bad_pixel_map
 
     def __call__(self, image_series: np.ndarray, inplace=False):
+
+        print(image_series.shape)
         if not inplace:
             image_series = np.copy(image_series)
 
@@ -459,6 +468,7 @@ class ImageSeriesPixelArtifactFilterer:
         if self.bad_pixel_map is not None:
             medfilt_image = median_filter(mean_image, 5, mode='nearest')[self.bad_pixel_map]
             for k in range(len(image_series)):
+                print(f'k: {k}')
                 image_series[k][self.bad_pixel_map] = medfilt_image
 
         return image_series

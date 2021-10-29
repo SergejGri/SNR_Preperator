@@ -24,7 +24,7 @@ class Reader():
     use_threaded_IO = 0
     modes = 'auto', 'raw', 'raw_stack'
 
-    def __init__(self, path: str, pattern: str='*', mode: str='auto', dtype='<u2', return_dtype=None, shape=(0, 0, 0),
+    def __init__(self, path: str, pattern: str='*', mode: str='auto', dtype='f4', return_dtype=None, shape=(0, 0, 0),
                  header: int=0, crops=(None, None, None), value_range=None, do_rescale: bool=False,
                  bin_factor=1, exclude_patterns: list=None, sort_name_range=(None, None), base_folder=None,
                  defer_prepare: bool=False):
