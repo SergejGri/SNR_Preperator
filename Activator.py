@@ -1,9 +1,5 @@
 import gc
-import math
-import matplotlib.pyplot as plt
-from scipy.interpolate import interp2d
-
-from SNR_Calculation.CurveDB import *
+from SNR_Calculation.map_db import *
 from scipy import interpolate
 import numpy as np
 import Plotter as PLT
@@ -23,7 +19,7 @@ class Curve:
 
 
 class Activator:
-    def __init__(self, data_T: np.array, path_db: str, U0: int, ds: list, create_plot: bool = True):
+    def __init__(self, data_T: np.array, path_db: str, U0: int, ds: list, create_plot: bool = False):
         self.data_T = data_T
         self.T_min = self.get_min_T()
         self.path_db = path_db
@@ -51,14 +47,13 @@ class Activator:
         self.Y_opt = None
         self.kV_opt = None
 
-        self.__call__(create_plot)
 
-    def __call__(self, create_plot, *args, **kwargs):
+    def __call__(self, *args, **kwargs):
         self.load_db()
         self.interpolate_curve_piece()
         self.create_virtual_curves()
         self.find_intercept()
-        if self.intercept_found == True:
+        if self.intercept_found:
             self.get_opt_SNR_curve()
         self.printer()
 
@@ -68,7 +63,7 @@ class Activator:
     def load_db(self):
         db = DB(self.path_db)
         for d in self.ds:
-            kV, T, SNR = db.read_data(d, mode='raw')                        # read curve
+            kV, T, SNR = db.read_data(d, mode='raw')  # read curve
             self.curves.append(Curve(d=d, kV=kV, T=T, SNR=SNR))
 
     def interpolate_curve_piece(self):
@@ -77,13 +72,13 @@ class Activator:
         dist, lb, rb = self.find_neighbours()
         step = rb - lb
 
-        for _curve in self.curves:
+        for curve in self.curves:
             # 1)    get left and right neighbours and interpolate between these values
             # 2)    append the values at given index to the c_U0x and c_U0_y
-            il = _curve.kV.index(lb)
-            ir = _curve.kV.index(rb)
-            a, b, c = np.polyfit(_curve.T, _curve.SNR, deg=2)
-            x_SNR_T = np.linspace(_curve.T[il], _curve.T[ir], step + 1)
+            il = curve.kV.index(lb)
+            ir = curve.kV.index(rb)
+            a, b, c = np.polyfit(curve.T, curve.SNR, deg=2)
+            x_SNR_T = np.linspace(curve.T[il], curve.T[ir], step + 1)
             y_SNR_T = self.func_poly(x_SNR_T, a, b, c)
             self.x_U0_p.append(x_SNR_T[dist])
             self.y_U0_p.append(y_SNR_T[dist])
@@ -105,7 +100,7 @@ class Activator:
         try:
             epsilon = 0.00001
             idx = np.where(np.logical_and(self.x_U0_c > (self.T_min - epsilon),
-                                          self.x_U0_c < (self.T_min + epsilon)) == True)
+                                          self.x_U0_c < (self.T_min + epsilon)) is True)
             self.intercept_x = self.T_min
             self.intercept_y = self.y_U0_c[idx[0][0]]
             self.intercept_found = True
@@ -131,7 +126,7 @@ class Activator:
 
         step = 0.1
         db = DB(self.path_db)
-        for i in range(len(self.ds)-1):
+        for i in range(len(self.ds) - 1):
             X = []
             Y = []
 
@@ -144,7 +139,7 @@ class Activator:
                 _x = [T_2[j], T_1[j]]
                 _y = [SNR_2[j], SNR_1[j]]
                 f = interpolate.interp1d(_x, _y, kind='linear')
-                _x_new = np.linspace(T_2[j], T_1[j], len(c_num)+2)[1:-1]
+                _x_new = np.linspace(T_2[j], T_1[j], len(c_num) + 2)[1:-1]
                 _y_new = f(_x_new)
                 X.append(_x_new)
                 Y.append(_y_new)
@@ -163,7 +158,7 @@ class Activator:
         # find first element in self.curves which where arg. > self.U0 ==> right border
         # the nearest left entry is the left border between which the interpolation will take place
         num = next(i[0] for i in enumerate(self.curves[0].kV) if i[1] >= self.U0)
-        neighbour_l = self.curves[0].kV[num-1]
+        neighbour_l = self.curves[0].kV[num - 1]
         neighbour_r = self.curves[0].kV[num]
         dist = self.U0 - neighbour_l
         return abs(int(dist)), int(neighbour_l), int(neighbour_r)
@@ -185,7 +180,6 @@ class Activator:
         for i in range(len(watch_curves)):
             _c = watch_curves[i]
             _x, _y = self.poly_fit(_c.T, _c.SNR, 10000)
-
 
             #   1) estimate the nearest interpolated x values to the intercept_x
             idx = (np.abs(_x - self.T_min)).argmin()
@@ -221,7 +215,6 @@ class Activator:
     def t_exp_calc(self):
         pass
 
-
     def printer(self):
         if self.intercept_found == True:
             print(f'intercept T_min and U0:\n'
@@ -242,14 +235,13 @@ class Activator:
         y = self.func_poly(x, a, b, c)
         return x, y
 
-
     @staticmethod
     def func_linear(x, m, t):
-        return m*x + t
+        return m * x + t
 
     @staticmethod
     def func_poly(x, a, b, c):
-        return a*x**2 + b*x + c
+        return a * x ** 2 + b * x + c
 
     @staticmethod
     def whole_num(num):

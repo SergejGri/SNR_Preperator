@@ -2,9 +2,9 @@ from cycler import cycler
 import matplotlib.gridspec as gridspec
 import matplotlib as plt
 
-import SNR_Calculation.Prepper
-from SNR_Calculation.CurveDB import *
-from SNR_Calculation.Prepper import SNRMapGenerator
+import SNR_Calculation.map_generator
+from SNR_Calculation.map_db import *
+from SNR_Calculation.map_generator import SNRMapGenerator
 
 
 class Plotter:
@@ -47,19 +47,22 @@ class Plotter:
         fig.savefig(os.path.join(path_result, f'MAP_kVopt{act_object.kV_opt}.pdf'), dpi=600)
 
 
+
     def create_MAP_plot(self, path_result: str, object, Y_style: str = 'log'):
         fig = plt.figure()
-
+        roi_l = object['ROIs']['lb']
+        roi_r = object['ROIs']['rb']
         for d in [2, 4, 6, 8]:
             curve = f'{d}_mm'
-            plt.plot(object[0][curve]['T'], object[0][curve]['SNR'], linestyle='-', label=curve)
-            plt.scatter(object[0][curve]['T'], object[0][curve]['SNR'], marker='o',)
+            plt.plot(object['curves'][curve]['T'], object['curves'][curve]['SNR'], linestyle='-', label=curve)
+            plt.scatter(object['curves'][curve]['T'], object['curves'][curve]['SNR'], marker='o',)
         plt.legend()
+        plt.title(f'SNR MAP @ {roi_l}-{roi_r} $\mu m$')
         plt.yscale(Y_style)
         plt.xlabel('Transmission a.u.')
         plt.ylabel('SNR/s')
         plt.show()
-        fig.savefig(os.path.join(path_result, f'MAP_init_ROI_{object[1][0]-object[1][1]}.pdf'), dpi=600)
+        fig.savefig(os.path.join(path_result, f'MAP_ROI-{roi_l}-{roi_r}.pdf'), dpi=600)
         print('test')
 
 
@@ -73,21 +76,22 @@ class Plotter:
 
         MAP_dict = {}
         for spt_s in sizes:
-            MAP_dict[f'{spt_s} mm'] = base_MAP.create_MAP(spatial_range=spt_s)
+            MAP_dict[f'{spt_s}'] = base_MAP.create_MAP(spatial_range=spt_s)['curves'][f'{d}_mm']
 
         fig = plt.figure()
         for _s in sizes:
-            curve = f'{d}_mm'
-
-            plt.plot()
-            plt.plot(object[0][curve]['T'], object[0][curve]['SNR'], linestyle='-', label=curve)
-            plt.scatter(object[0][curve]['T'], object[0][curve]['SNR'], marker='o', )
+            ROI = MAP_dict[f'{_s}']
+            x = MAP_dict[f'{_s}']['T']
+            y = MAP_dict[f'{_s}']['SNR']
+            plt.plot(x, y, linestyle='-', label=f'{_s} $\mu m$')
+            plt.scatter(x, y, marker='o', cmap='RdPu')
         plt.legend()
         plt.yscale(Y_style)
         plt.xlabel('Transmission a.u.')
         plt.ylabel('SNR/s')
+        plt.title(f'SNR/s (T) for different spatial sizes (@{d} mm Al)')
         plt.show()
-        fig.savefig(os.path.join(path_result, f'MAP_init_ROI_{object[1][0] - object[1][1]}.pdf'), dpi=600)
+        fig.savefig(os.path.join(path_result, f'evo_MAP_.pdf'), dpi=600)
         print('test')
 
 

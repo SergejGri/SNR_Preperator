@@ -1,10 +1,19 @@
-# T = [0.05 - 0.25]
-import Activator
+import os
+
+def create_files():
+    pathh = r'C:\Users\Sergej Grischagin\Desktop\testFolder_for_xCT'
+    n = 0
+    for file in os.listdir(pathh):
+        if not os.path.isdir(os.path.join(pathh, file)):
+            f = open(f'CT_{n}.txt', 'w')
+            f.write("Your text goes here")
+            f.close()
+        n += 1
 
 
 def main():
-    list = [[0.24, 0.06, 0.21, 0.13], [0.1, 0.005, 0.09, 0.02]]
-    Activator.Activator(list_thickness=list)
+    pass
+
 
 
 if __name__ == '__main__':

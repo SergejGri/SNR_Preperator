@@ -1,7 +1,7 @@
 import externe_files.SNR_spectra
-from SNR_Calculation.Calculator import *
-from SNR_Calculation.Prepper import *
-from SNR_Calculation.CurveDB import *
+from SNR_Calculation.preperator import *
+from SNR_Calculation.map_generator import *
+from SNR_Calculation.map_db import *
 import datetime
 import os
 

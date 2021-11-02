@@ -1,8 +1,8 @@
 import os
 from externe_files.SNR_spectra import SNR_Evaluator, ImageSeriesPixelArtifactFilterer
-from SNR_Calculation.Calculator import load_px_map
-from SNR_Calculation import Calculator
-from SNR_Calculation.Calculator import SNRCalculator
+from SNR_Calculation.preperator import load_px_map
+from SNR_Calculation import preperator
+from SNR_Calculation.preperator import SNRCalculator
 from externe_files import file, common, image
 
 
@@ -43,7 +43,7 @@ if __name__ == '__main__':
     figure = None
     for k in range(len(ds)):
         imgs = os.path.join(path_to_raw_data, kV, ds[k])
-        t_exp = Calculator.get_t_exp(imgs)
+        t_exp = preperator.get_t_exp(imgs)
         data = file.volume.Reader(imgs, mode='raw', shape=img_shape, header=header, dtype='u2').load_range((stack_range[0], stack_range[-1]))
         SNR_eval.estimate_SNR(data[_slice], refs[_slice], darks[_slice],
                               exposure_time=t_exp,

@@ -407,7 +407,7 @@ class ImageSeriesPixelArtifactFilterer:
     # default: speckle_iterations = 2
     # default: speckle_warn_fraction = 0.01
     verbose = True
-    speckle_std_threshold = 2.6
+    speckle_std_threshold = 2.4
     speckle_iterations = 2
     speckle_warn_fraction = 0.01
 
@@ -468,7 +468,6 @@ class ImageSeriesPixelArtifactFilterer:
         if self.bad_pixel_map is not None:
             medfilt_image = median_filter(mean_image, 5, mode='nearest')[self.bad_pixel_map]
             for k in range(len(image_series)):
-                print(f'k: {k}')
                 image_series[k][self.bad_pixel_map] = medfilt_image
 
         return image_series

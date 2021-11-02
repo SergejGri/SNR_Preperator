@@ -1,7 +1,6 @@
 import sqlite3
 import os
 import numpy as np
-import numpy.polynomial.polynomial as poly
 import matplotlib.pyplot as plt
 from scipy import interpolate
 
@@ -9,7 +8,7 @@ from scipy import interpolate
 class DB:
     def __init__(self, path_DB: str):
         self.path_DB = path_DB
-        self.conn = sqlite3.connect(os.path.join(self.path_DB, 'curves.db'))
+        self.conn = sqlite3.connect(os.path.join(self.path_DB, 'MAP.db'))
         self.c = self.conn.cursor()
         self.d = None
 
@@ -18,7 +17,13 @@ class DB:
         with self.conn:
             self.c.execute("CREATE TABLE IF NOT EXISTS curve_" + d + "(voltage REAL, T REAL, SNR REAL)")
 
-    def add_data(self, d, voltage, SNR=None, T=None, mode: str = None):
+    def add_data(self, object: object):
+        self.c = self.conn.cursor()
+        print('test')
+
+        pass
+
+    def add_data_v2(self, d, voltage, SNR=None, T=None, mode: str = None):
         '''
         :param mode: accepts 'raw' or 'fit' as input. If 'raw' is set, the passed values are going to be stored to the
         unfitted data otherwise to the tables with fitted curves.
@@ -83,7 +88,6 @@ class DB:
 
         if table_exists:
             rows = self.c.fetchall()
-
             list_voltage = [x[0] for x in rows]
             list_T = [x[1] for x in rows]
             list_SNR = [x[2] for x in rows]
@@ -98,11 +102,12 @@ class DB:
     def table_exists(self, name):
         # Check if there is an column with voltage entries --> existing table
         name = str(name)
+        list_of_tables = []
         try:
             list_of_tables = self.c.execute("SELECT voltage FROM "+name+"").fetchall()
         except:
             print('test')
-        if list_of_tables == []:
+        if not list_of_tables:
             return False
         else:
             return True

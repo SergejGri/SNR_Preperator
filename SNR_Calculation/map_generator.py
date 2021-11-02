@@ -1,13 +1,13 @@
 import gc
 import time
-from SNR_Calculation.CurveDB import *
 import numpy as np
 import os
 import matplotlib.pyplot as plt
+from SNR_Calculation.map_db import DB
 
 
 class SNRMapGenerator:
-    def __init__(self, path_snr: str, path_T: str, path_fin: str, d: list, kV_filter: list = None):
+    def __init__(self, path_snr: str, path_T: str, path_fin: str, d: list, init_MAP=False, kV_filter: list = None):
         """
         :param path_snr:
         :param path_T:
@@ -25,6 +25,8 @@ class SNRMapGenerator:
         self.curves = {}
         self.ROI = {}
         self.MAP_object = {}
+
+        self.init_MAP = init_MAP
 
         self.kV_filter = kV_filter
         if kV_filter is not None:
@@ -45,9 +47,12 @@ class SNRMapGenerator:
             self.curves[f'{self.str_d}'] = {}
             self.curves[f'{self.str_d}']['kV'], self.curves[f'{self.str_d}']['T'] = self.get_T_data()
             self.curves[f'{self.str_d}']['SNR'] = self.get_SNR_data(lb, rb)
-            #self.merge_data(self.curves[f'{self.str_d}']['kV'],
-            #                self.curves[f'{self.str_d}']['T'],
-            #                self.curves[f'{self.str_d}']['SNR'])
+        self.MAP_object['curves'] = self.curves
+        self.MAP_object['ROIs'] = self.ROI
+        if self.init_MAP:
+            db = DB(path_DB=self.path_fin)
+            db.add_data(self.MAP_object)
+        return self.MAP_object
 
 
     # TODO: implement more robust file finding routine
@@ -71,9 +76,7 @@ class SNRMapGenerator:
             self.curves[f'{self.str_d}'] = {}
             self.curves[f'{self.str_d}']['kV'], self.curves[f'{self.str_d}']['T'] = self.get_T_data()
             self.curves[f'{self.str_d}']['SNR'] = self.get_SNR_data(lb, rb)
-        self.MAP_object['curves'] = self.curves
-        self.MAP_object['ROIs'] = self.ROI
-        return self.MAP_object
+
 
     def get_T_data(self):
         data_T = np.genfromtxt(os.path.join(self.path_T, f'{self.str_d}.csv'), delimiter=';')
@@ -123,11 +126,15 @@ class SNRMapGenerator:
 
 
     def merge_data(self,kV, T, SNR):
-        zzz = np.column_stack((kV, T, SNR))
+        #zzz = np.column_stack((kV, T, SNR))
         self.d_curve = np.hstack((T, SNR))
         self.d_curve = np.delete(self.d_curve, 2, axis=1)
         self.d_curve.astype(float)
         self.curves[f'{self.str_d}mm'] = self.d_curve
+
+    def write_db(self):
+        db = DB(path_DB=self.path_fin)
+        db.add_data()
 
 
     def interpolate_data(self, data, idx:tuple=None):
@@ -163,6 +170,10 @@ class SNRMapGenerator:
             return data
 
 
+    def pick_value(self):
+        pass
+
+
     def units_converter(self, val):
         """
         :param:
@@ -185,7 +196,6 @@ class SNRMapGenerator:
 
     @staticmethod
     def get_properties(file):
-        str_kV = None
         int_kV = None
         filename = os.path.basename(file)
         try:

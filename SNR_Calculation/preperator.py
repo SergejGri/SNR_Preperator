@@ -21,7 +21,7 @@ def check_px_vals(img):
     print(f'Execution time: {round((stop - start), 2)}s')
 
 
-class SNRCalculator:
+class SNRPrepperator:
     def __init__(self, img_shape: tuple, header: int, path: str, path_result: str, magnification: float,
                  overwrite: bool = True, stack_range: tuple = None, t_exp: float = None, pixel_size_units: str = None,
                  _slice: tuple = None, watt: float = None, detector_pixel: float = None, smallest_size: float = None,
@@ -145,7 +145,7 @@ class SNRCalculator:
 
             if self.mode_SNR:
                 self.t_exp = get_t_exp(imgs)
-                SNR_eval, figure = self.calc_SNR(SNR_eval, imgs, path_save_SNR, figure, data, refs, darks, _d)
+                SNR_eval, figure = self.calc_SNR(SNR_eval, imgs, path_save_SNR, figure, data, refs, darks, _d, str_voltage)
                 figure = SNR_eval.plot(figure, f'{_d} mm')
                 results.append(SNR_eval)
             del data
@@ -173,12 +173,12 @@ class SNRCalculator:
         gc.collect()
         return T
 
-    def calc_SNR(self, snr_obj, path_to_files, path_save_SNR, figure, data, refs, darks, _d):
+    def calc_SNR(self, snr_obj, path_to_files, path_save_SNR, figure, data, refs, darks, _d, voltage):
         px_map = load_px_map()
         filterer = ImageSeriesPixelArtifactFilterer()
         # filterer = ImageSeriesPixelArtifactFilterer(bad_pixel_map=px_map[self.px_map_slice])
         self.t_exp = get_t_exp(path_to_files)
-        voltage = get_voltage(dir)
+
         snr_obj.estimate_SNR(data[self._slice], refs[self._slice], darks[self._slice], exposure_time=self.t_exp,
                              pixelsize=self.pixel_size, pixelsize_units=self.pixel_size_units,
                              series_filterer=filterer, u_nbins=self.nbins,
@@ -213,23 +213,26 @@ class SNRCalculator:
 def get_t_exp(path):
     t_exp = None
     for file in os.listdir(path):
+
         piece_l = file.split('expTime_')[1]
         piece_r = piece_l.split('__')[0]
         t_exp = int(piece_r)
+        t_exp = t_exp / 1000
         break
     return t_exp
 
 
 def get_voltage(dir):
-    str_voltage = dir
-    if '_' in str_voltage:
-        voltage = int(str_voltage.split('_')[0])
+    if '_' in dir:
+        voltage = int(dir.split('_')[0])
+    elif 'kV' in dir:
+        voltage = int(dir.split('kV')[0])
     else:
-        voltage = int(str_voltage.split('kV')[0])
+        voltage = int(dir)
     return voltage
 
 
 def load_px_map():
     path_to_map = r"C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\BAD-PIXEL-bin1x1-scans-MetRIC.tif"
-    img = Image.open(path_to_map)
+    img = file.image.load(path_to_map)
     return (file.volume.Reader(path_to_map, mode='auto', shape=(1, img.size[0], img.size[1])).load(0)).astype(int)
