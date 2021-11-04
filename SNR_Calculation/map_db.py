@@ -17,11 +17,25 @@ class DB:
         with self.conn:
             self.c.execute("CREATE TABLE IF NOT EXISTS curve_" + d + "(voltage REAL, T REAL, SNR REAL)")
 
-    def add_data(self, object: object):
+    def add_data(self, obj: object):
         self.c = self.conn.cursor()
-        print('test')
+        curves = obj['curves']
 
-        pass
+        for _c in curves.keys():
+            kV = list(curves[_c]['kV'])
+            T = list(curves[_c]['T'])
+            SNR = list(curves[_c]['SNR'])
+
+            self.c.execute(f"CREATE TABLE IF NOT EXISTS {_c} (voltage REAL, T REAL, SNR REAL)")
+            self.c.execute(f"SELECT T, SNR FROM " + _c + " WHERE T=? OR SNR=?", (T[0], SNR[0]))
+            duplicates = self.c.fetchone()
+            if duplicates:
+                print(f'ignoring duplicates: {_c} -> {duplicates}')
+            else:
+                with self.conn:
+                    for kv, t, snr in zip(kV, T, SNR):
+                        self.c.execute(f"INSERT INTO {_c} VALUES (?, ?, ?)", (kv, t, snr))
+
 
     def add_data_v2(self, d, voltage, SNR=None, T=None, mode: str = None):
         '''
@@ -135,23 +149,6 @@ def create_MAP(path_res, list_ds, excl, mode):
 
 
 
-def load_MAP(path_db, ds, excl, mode):
-    db = DB(path_db)
-    a = ds
-    b = excl
-    c = mode
-
-    MAP = 1     # should be an 2D array
-    return MAP
-
-
-
-
-
-def gimme_mesh(n):
-    return np.meshgrid(np.linspace(40, 160, n), np.linspace(0, 1, n+1))
-
-
 def data_points():
     db = DB(r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-10-01_Sergej_SNR-Stufenkeil_6W_130proj_0-10mm\MAP')
     ds = [0, 2, 4, 6, 8, 10]
@@ -169,20 +166,3 @@ def data_points():
     return kV, T, SNR
 
 
-def plot_mesh():
-    _, y, z = data_points()
-    x = np.linspace(40, 160, z.size)
-    print(x.shape)
-    print(y.shape)
-    print(z.shape)
-    grid_x, grid_y = np.mgrid[1:2:1j, 0:1:170j]
-
-    points = np.stack([x.ravel(), y.ravel()], -1)  # shape (N, 2) in 2d
-
-    z_griddata = interpolate.griddata(points, z.ravel(), (grid_x, grid_y), method='cubic')
-
-    fig, ax = plt.subplots()
-    ax.imshow(z_griddata, interpolation='bicubic')
-    plt.plot(points[0], points[1], 'ro')
-    plt.show()
-    print('test')

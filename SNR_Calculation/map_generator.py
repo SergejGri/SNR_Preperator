@@ -7,7 +7,7 @@ from SNR_Calculation.map_db import DB
 
 
 class SNRMapGenerator:
-    def __init__(self, path_snr: str, path_T: str, path_fin: str, d: list, init_MAP=False, kV_filter: list = None):
+    def __init__(self, path_snr: str, path_T: str, path_fin: str, d: list, kV_filter: list = None):
         """
         :param path_snr:
         :param path_T:
@@ -21,12 +21,11 @@ class SNRMapGenerator:
 
         self.ds = d
         self.str_d = None
+        self.file_d = None
         self.d_txt_files = {}
         self.curves = {}
         self.ROI = {}
         self.MAP_object = {}
-
-        self.init_MAP = init_MAP
 
         self.kV_filter = kV_filter
         if kV_filter is not None:
@@ -39,21 +38,24 @@ class SNRMapGenerator:
             self._collect_data(self.ds[i])
 
 
-    def __call__(self, spatial_range, *args, **kwargs):
+    def __call__(self, spatial_range, init_MAP=False, *args, **kwargs):
         lb, rb = self.check_input(spatial_range)
 
         for i in range(len(self.ds)):
-            self.str_d = f'{self.ds[i]}_mm'
+            self.str_d = f'c_{self.ds[i]}mm'            # file nomenclature is '... _0_mm_ ...' but sqlite does not accept numbers as first char for table names
+            self.file_d = f'{self.ds[i]}_mm'            # therefore two thickness declarations
             self.curves[f'{self.str_d}'] = {}
             self.curves[f'{self.str_d}']['kV'], self.curves[f'{self.str_d}']['T'] = self.get_T_data()
             self.curves[f'{self.str_d}']['SNR'] = self.get_SNR_data(lb, rb)
         self.MAP_object['curves'] = self.curves
         self.MAP_object['ROIs'] = self.ROI
-        if self.init_MAP:
+        if init_MAP:
             db = DB(path_DB=self.path_fin)
             db.add_data(self.MAP_object)
         return self.MAP_object
 
+
+# TODO: Umbenennung der Kurvennamen damit keine Zahl am Anfang des namens steht --> sqlite db
 
     # TODO: implement more robust file finding routine
     def _collect_data(self, _d):
@@ -66,7 +68,7 @@ class SNRMapGenerator:
         self.d_txt_files[f'{_d}_mm'] = _loc_list
 
 
-    def create_MAP(self, spatial_range):
+    '''def create_MAP(self, spatial_range):
         if bool(self.curves):
             self.reset()
         lb, rb = self.check_input(spatial_range)
@@ -75,11 +77,11 @@ class SNRMapGenerator:
             self.str_d = f'{self.ds[i]}_mm'
             self.curves[f'{self.str_d}'] = {}
             self.curves[f'{self.str_d}']['kV'], self.curves[f'{self.str_d}']['T'] = self.get_T_data()
-            self.curves[f'{self.str_d}']['SNR'] = self.get_SNR_data(lb, rb)
+            self.curves[f'{self.str_d}']['SNR'] = self.get_SNR_data(lb, rb)'''
 
 
     def get_T_data(self):
-        data_T = np.genfromtxt(os.path.join(self.path_T, f'{self.str_d}.csv'), delimiter=';')
+        data_T = np.genfromtxt(os.path.join(self.path_T, f'{self.file_d}.csv'), delimiter=';')
         data_T = data_T[data_T[:, 0].argsort()]
         #loc_data_T.append(data_T[:, 0])
         #_data_T.append(data_T[:, 1])
@@ -100,7 +102,7 @@ class SNRMapGenerator:
         kvs = []
         snr_means = []
 
-        for file in self.d_txt_files[f'{self.str_d}']:
+        for file in self.d_txt_files[f'{self.file_d}']:
             kV, mean_SNR = self.calc_avg_SNR(file, lb, rb)
             kvs.append(kV)
             snr_means.append(mean_SNR)
@@ -126,7 +128,6 @@ class SNRMapGenerator:
 
 
     def merge_data(self,kV, T, SNR):
-        #zzz = np.column_stack((kV, T, SNR))
         self.d_curve = np.hstack((T, SNR))
         self.d_curve = np.delete(self.d_curve, 2, axis=1)
         self.d_curve.astype(float)

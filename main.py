@@ -78,9 +78,8 @@ def main():
 
     MAP_object = SNRMapGenerator(path_snr=snr_data, path_T=T_data, path_fin=result, d=ds)
 
-    init_MAP = MAP_object(spatial_range=(150, 250))
-    db = DB(path_DB=result)
-    db.add_data(init_MAP)
+    init_MAP = MAP_object(spatial_range=(150, 250), init_MAP=True)
+    print('test')
 
     #secondary_MAP = MAP_object(spatial_range=usr_size)
 
