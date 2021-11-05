@@ -183,7 +183,7 @@ class SNRPrepperator:
                              pixelsize=self.pixel_size, pixelsize_units=self.pixel_size_units,
                              series_filterer=filterer, u_nbins=self.nbins,
                              save_path=os.path.join(path_save_SNR,
-                                                    f'SNR(u)_{self.watt}W{voltage}kV_{_d}_mm_expTime_{self.t_exp}'))
+                                                    f'SNR(u)-{self.watt}_W-{voltage}_kV-{_d}_mm-expTime_{self.t_exp}'))
         return snr_obj, figure
 
     @staticmethod

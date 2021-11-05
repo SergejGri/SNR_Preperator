@@ -1,13 +1,66 @@
 import gc
+import csv
 from SNR_Calculation.map_db import *
+from SNR_Calculation.map_generator import SNRMapGenerator
 from scipy import interpolate
 import numpy as np
-import Plotter as PLT
+from Plots import Plotter as PLT
 
 
 class Scanner:
-    def __init__(self):
-        pass
+    def __init__(self, snr_files: str, T_files: str):
+        self.p_SNR_files = snr_files
+        self.p_T_files = T_files
+        self.curves = {}
+        self.files = {}
+
+        self.collect_snr_files()
+        self.collect_transmission_files()
+
+    def collect_snr_files(self):
+        loc = []
+        for _dir in os.listdir(self.p_SNR_files):
+            _subdir = os.path.join(self.p_SNR_files, _dir)
+            for file in os.listdir(_subdir):
+                if file.endswith('.txt'):
+                    d = self.extract_d(file)
+                    if f'_{d}_mm_' in file:
+                        loc.append(os.path.join(_subdir, file))
+        self.files['SNR'] = loc
+
+    def collect_transmission_files(self):
+        loc = []
+        for file in os.listdir(self.p_T_files):
+            if file.endswith('.csv'):
+                loc.append(os.path.join(self.p_T_files, file))
+        self.files['T'] = loc
+
+    def collect_curve_data(self, d):
+        loc_list = []
+        for file in os.listdir(self.p_curves):
+            if file.endswith('.csv') and f'{d}_mm' in file:
+                loc_list.append(os.path.join(self.p_curves, file))
+        return loc_list
+
+    @staticmethod
+    def extract_values(file):
+        kV = []
+        T = []
+        SNR = []
+        with open(file) as fp:
+            reader = csv.reader(fp, delimiter=',')
+            data_read = [row for row in reader]
+        for i in range(len(data_read)):
+            kV.append(float(data_read[i][0]))
+            T.append(float(data_read[i][1]))
+            SNR.append(float(data_read[i][2]))
+        return kV, T, SNR
+
+    @staticmethod
+    def extract_d(file):
+        d_str = file.split('kV_')[1]
+        d_str = d_str.split('_mm')[0]
+        return int(d_str)
 
 
 class Curve:
@@ -17,13 +70,25 @@ class Curve:
         self.T = T
         self.SNR = SNR
 
+        self.curve = {f'{self.d}': {}}
+        self.curve[f'{self.d}']['kV'] = kV
+        self.curve[f'{self.d}']['T'] = T
+        self.curve[f'{self.d}']['SNR'] = SNR
+
 
 class Activator:
-    def __init__(self, data_T: np.array, path_db: str, U0: int, ds: list, create_plot: bool = False):
+    def __init__(self, data_T: np.array, snr_files: str, T_files: str, U0: int, ds: list, ssize=None,
+                 create_plot: bool = False):
         self.data_T = data_T
         self.T_min = self.get_min_T()
-        self.path_db = path_db
+        if ssize:
+            self.ssize = ssize
+        else:
+            self.ssize = (250, 150)
+            self.init_MAP = True
+        self.scnr = Scanner(snr_files=snr_files, T_files=T_files)
         self.curves = []
+
         self.stop_exe = False
         if 40 <= U0 and U0 <= 180:
             self.U0 = U0
@@ -49,7 +114,10 @@ class Activator:
 
 
     def __call__(self, *args, **kwargs):
-        self.load_db()
+        MAP_object = SNRMapGenerator(scnr=self.scnr, d=self.ds)
+        map = MAP_object(spatial_range=self.ssize)
+
+        self.read_curves(map=map)
         self.interpolate_curve_piece()
         self.create_virtual_curves()
         self.find_intercept()
@@ -58,13 +126,26 @@ class Activator:
         self.printer()
 
     def get_min_T(self):
-        return np.min(self.data_T[1])
+        return np.min(self.data_T[0])
 
-    def load_db(self):
-        db = DB(self.path_db)
-        for d in self.ds:
-            kV, T, SNR = db.read_data(d, mode='raw')  # read curve
+
+    # TODO: the very first approach of the code contained just lists. I started to rewrite all the code from the
+    #  beginning to make dicts as the one container. Couldn't finish it because of to little time. Thats why from here
+    #  on there are lists and dicts mixed.
+
+    def read_curves(self, map):
+        kV, T, SNR = [], [], []
+        #for d in self.ds:
+        for d in map['curves']:
+            kV = list(map['curves'][d][:, 0])
+            T = list(map['curves'][d][:, 1])
+            SNR = list(map['curves'][d][:, 2])
             self.curves.append(Curve(d=d, kV=kV, T=T, SNR=SNR))
+            #files = self.scnr.collect_curve_data(d=d)
+            #for f in files:
+            #    kV, T, SNR = self.scnr.extract_values(file=f)
+            #self.curves.append(Curve(d=d, kV=kV, T=T, SNR=SNR))
+
 
     def interpolate_curve_piece(self):
         # 1)    interpolate SNR(T) curve in the given range of nearest neighbours
@@ -75,6 +156,7 @@ class Activator:
         for curve in self.curves:
             # 1)    get left and right neighbours and interpolate between these values
             # 2)    append the values at given index to the c_U0x and c_U0_y
+
             il = curve.kV.index(lb)
             ir = curve.kV.index(rb)
             a, b, c = np.polyfit(curve.T, curve.SNR, deg=2)
@@ -115,25 +197,16 @@ class Activator:
         #   4) take the first data point (SNR/kV) of the second curve and the first data point (SNR/kV) of the first curve
         #      and divide the abs between them into c_num + 1 pieces
 
-        '''
-        c30 = np.array([[29.58, 10992.90], [34.06, 10488.35], [36.53, 10166.76], [38.92, 9836.60], [41.99, 9298.52], [45.13, 8708.54], [47.68, 8153.57], [49.34, 7768.64], [50.30, 7546.69]])
-        c45 = np.array([[26.79, 10598.67], [28.89, 10282.69], [30.99, 9962.94], [33.09, 9622.18], [35.18, 9220.9], [37.28, 8773.75], [39.38, 8311.88], [41.48, 7836.1], [43.58, 7344.26]])
-        c60 = np.array([[24.44, 9518.93], [25.81, 9231.69], [27.17, 8919.78], [28.54, 8576.69], [29.9, 8213.69], [31.27, 7841.51], [32.64, 7437.91], [34., 7004.48], [35.37, 6569.1]])
-
-        c44_3 = ((44.3 - 30) * c45 + (45 - 44.3) * c30) / (45 - 30)
-        c71_5 = ((71.5 - 45) * c60 + (60 - 71.5) * c45) / (60 - 45)
-        '''
-
         step = 0.1
-        db = DB(self.path_db)
         for i in range(len(self.ds) - 1):
             X = []
             Y = []
 
             c_num = np.arange(self.ds[i], self.ds[i + 1], step)[1:]
             c_num = c_num[::-1]
-            V_2, T_2, SNR_2 = db.read_data(d=self.ds[i + 1], mode='raw')
-            V_1, T_1, SNR_1 = db.read_data(d=self.ds[i], mode='raw')
+            kV_2, T_2, SNR_2 = self.curves[i+1].kV, self.curves[i+1].T, self.curves[i+1].SNR
+            kV_1, T_1, SNR_1 = self.curves[i].kV, self.curves[i].T, self.curves[i].SNR
+
 
             for j in range(len(T_1)):
                 _x = [T_2[j], T_1[j]]
@@ -148,11 +221,13 @@ class Activator:
                 _T = []
                 _SNR = []
                 _d = round(c_num[k], 2)
-                kV = V_1
+                kV = kV_1
                 for _j in range(len(T_1)):
                     _T.append(X[_j][k])
                     _SNR.append(Y[_j][k])
                 self.curves.append(Curve(d=_d, kV=kV, T=_T, SNR=_SNR))
+
+
 
     def find_neighbours(self):
         # find first element in self.curves which where arg. > self.U0 ==> right border
@@ -162,6 +237,8 @@ class Activator:
         neighbour_r = self.curves[0].kV[num]
         dist = self.U0 - neighbour_l
         return abs(int(dist)), int(neighbour_l), int(neighbour_r)
+
+
 
     def get_opt_SNR_curve(self):
         #   1) take the x and y value of T_min and find between curves are 'neighbours'
@@ -193,6 +270,7 @@ class Activator:
 
         self.find_max()
 
+
     def find_max(self):
         for _c in self.curves:
             try:
@@ -207,13 +285,16 @@ class Activator:
             except:
                 print('No curve satisfies the condition _c.d==self.d_opt.')
 
+
     def search_nearest_curve(self):
         # 1) accept transmission array from fast_ct() t_arr = [[p1, p2,..], [T1, T2 ..]]
         # 2) translate from T(proj) to d. There is a need in continuous d values
         pass
 
+
     def t_exp_calc(self):
         pass
+
 
     def printer(self):
         if self.intercept_found == True:
@@ -229,6 +310,8 @@ class Activator:
             print('No intercept between U0 and T_min could be found. \n'
                   '-> You may reduce epsilon in find_intercept()')
 
+
+
     def poly_fit(self, var_x, var_y, steps):
         a, b, c = np.polyfit(var_x, var_y, deg=2)
         x = np.linspace(var_x[0], var_x[-1], steps)
@@ -241,7 +324,7 @@ class Activator:
 
     @staticmethod
     def func_poly(x, a, b, c):
-        return a * x ** 2 + b * x + c
+        return a*x**2 + b*x + c
 
     @staticmethod
     def whole_num(num):

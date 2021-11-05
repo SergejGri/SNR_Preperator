@@ -1,12 +1,7 @@
-import numpy as np
-from PIL import Image
 from Activator import Activator
-import Activator as act
 from SNR_Calculation.preperator import *
 from SNR_Calculation.map_generator import *
 from SNR_Calculation.map_db import *
-import Plotter as PLT
-from Plots import *
 
 
 def prep_data(path_base, path_result_prep, ds):
@@ -60,7 +55,6 @@ def fast_CT():
 
 
 def main():
-    path_to_db = r"C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-10-01_Sergej_SNR-Stufenkeil_6W_130proj_0-10mm\MAP\curves.db"
     # =============== RAW DATA PREPERATION ===============
     # path_to_raw_data = [r'\\132.187.193.8\junk\sgrischagin\2021-10-01_Sergej_SNR-Stufenkeil_6W_130proj_0-10mm']
     # ds = [0, 2, 4, 6, 8]
@@ -69,30 +63,24 @@ def main():
     #    path_to_result = os.path.join(r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR', _str, 'NEW_EXP_T')
     #    prep_data(_path, path_to_result, ds=ds)
 
-    # =============== CREATE MAP ===============
-    snr_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-10-01_Sergej_SNR-Stufenkeil_6W_130proj_0-10mm\2021-10-6_SNR'
-    T_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-10-01_Sergej_SNR-Stufenkeil_6W_130proj_0-10mm\2021-10-6_T'
-    result = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-10-01_Sergej_SNR-Stufenkeil_6W_130proj_0-10mm\MAP'
-    ds = [0, 2, 4, 6, 8]
-    usr_size = 10  # [micro meter] here you need to define the min. sizes which should be resolvable at given SNR level
 
-    MAP_object = SNRMapGenerator(path_snr=snr_data, path_T=T_data, path_fin=result, d=ds)
 
-    init_MAP = MAP_object(spatial_range=(150, 250), init_MAP=True)
-    print('test')
 
-    #secondary_MAP = MAP_object(spatial_range=usr_size)
-
-    #PLT.Plotter().create_MAP_plot(path_result=result, object=init_MAP)
-    #PLT.Plotter().create_MAP_plot(path_result=result, object=secondary_MAP)
-
+    snr_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\2021-09-17_Evaluation\2021-9-17_SNR'
+    T_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\2021-09-17_Evaluation\2021-9-17_T'
+    #result = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-10-01_Sergej_SNR-Stufenkeil_6W_130proj_0-10mm\MAP'
 
 
     # 1) positioniere Objekt auf dem Drehteller und starte fast_CT
-    arr_T = fast_CT()
-    # 2) der ausgespuckte Array muss in den Activator gepackt werden um U_best zu bekommen
-
-    acti = Activator(data_T=arr_T, path_db=path_to_db, U0=67, ds=[2, 4, 6, 8])
+    #arr_T = fast_CT()
+    arr_T = [[0.113, 0.178, 0.011], [0.0, 10, 20]]
+    # 2) der ausgespuckte Array muss in den Activator gepackt werden um U_best bei einer gegebenen Raumauflösung zu bekommen
+    acti = Activator(data_T=arr_T,
+                     snr_files=snr_data,
+                     T_files=T_data,
+                     U0=67,
+                     ds=[1, 4, 5, 8, 9],
+                     ssize=10)
     acti()
 
     print('test')

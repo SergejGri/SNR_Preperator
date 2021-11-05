@@ -37,7 +37,7 @@ class DB:
                         self.c.execute(f"INSERT INTO {_c} VALUES (?, ?, ?)", (kv, t, snr))
 
 
-    def add_data_v2(self, d, voltage, SNR=None, T=None, mode: str = None):
+    def add_data_v2(self, d, voltage, SNR, T):
         '''
         :param mode: accepts 'raw' or 'fit' as input. If 'raw' is set, the passed values are going to be stored to the
         unfitted data otherwise to the tables with fitted curves.
@@ -45,33 +45,14 @@ class DB:
         self.c = self.conn.cursor()
         d = str(d)
 
-        if mode == 'raw':
-            self.c.execute("CREATE TABLE IF NOT EXISTS curve_" + d + "(voltage REAL, T REAL, SNR REAL)")
-            self.c.execute("SELECT T, SNR FROM curve_" + d + " WHERE T=? OR SNR=?", (T, SNR))
-            duplicates = self.c.fetchone()
-            if duplicates:
-                print(f'ignoring duplicates: {d}mm -> {duplicates}')
-            else:
-                with self.conn:
-                    self.c.execute("INSERT INTO curve_" + d + " VALUES (?, ?, ?)", (voltage, T, SNR))
-        if mode == 'fit':
-            self.c.execute("CREATE TABLE IF NOT EXISTS curve_fit_" + d + "(voltage REAL, T REAL, SNR REAL)")
-            self.c.execute("SELECT T, SNR FROM curve_fit_" + d + " WHERE T=? OR SNR=?", (T, SNR))
-            duplicates = self.c.fetchone()
-            if duplicates:
-                print(f'ignoring duplicates: {d}mm -> {duplicates}')
-            else:
-                with self.conn:
-                    self.c.execute("INSERT INTO curve_fit_" + d + " VALUES (?, ?, ?)", (voltage, T, SNR))
-        if mode == 'virtual':
-            self.c.execute("CREATE TABLE IF NOT EXISTS curve_vir_" + d + "(voltage REAL, T REAL, SNR REAL)")
-            self.c.execute("SELECT T, SNR FROM curve_vir_" + d + " WHERE T=? OR SNR=?", (T, SNR))
-            duplicates = self.c.fetchone()
-            if duplicates:
-                print(f'ignoring duplicates: {d}mm -> {duplicates}')
-            else:
-                with self.conn:
-                    self.c.execute("INSERT INTO curve_vir_" + d + " VALUES (?, ?, ?)", (voltage, T, SNR))
+        self.c.execute("CREATE TABLE IF NOT EXISTS curve_" + d + "(voltage REAL, T REAL, SNR REAL)")
+        self.c.execute("SELECT T, SNR FROM curve_" + d + " WHERE T=? OR SNR=?", (T, SNR))
+        duplicates = self.c.fetchone()
+        if duplicates:
+            print(f'ignoring duplicates: {d}mm -> {duplicates}')
+        else:
+            with self.conn:
+                self.c.execute("INSERT INTO curve_" + d + " VALUES (?, ?, ?)", (voltage, T, SNR))
 
 
     def read_data(self, d, excl=None, mode=None):
