@@ -34,7 +34,7 @@ class SNRMapGenerator:
             print(f'No value for kV_filter was passed. All voltage folders are being included for evaluation.')
 
 
-    def __call__(self, spatial_range, create_plot: bool=True, *args, **kwargs):
+    def __call__(self, spatial_range, *args, **kwargs):
         self.check_input(spatial_range)
         self.MAP_object['ROIs'] = self.ROI
 
@@ -42,16 +42,11 @@ class SNRMapGenerator:
             self.str_d = f'{self.ds[i]}_mm'
             kV, T = self.get_T_data()
             SNR = self.get_SNR_data(self.ROI['lb'], self.ROI['rb'])
-            self.merge_data(kV=kV, T=T, SNR=SNR)
+            self.curves[f'{self.str_d}'] = self.merge_data(kV=kV, T=T, SNR=SNR)
         self.MAP_object['curves'] = self.curves
         self.write_curve_files(self.curves)
-        if create_plot:
-            PLT = Plotter.Plotter()
-            PLT.create_MAP_plot(path_result=self.path_fin, object=self.MAP_object)
+
         return self.MAP_object
-
-
-# TODO: Umbenennung der Kurvennamen damit keine Zahl am Anfang des namens steht --> sqlite db
 
     def get_T_data(self):
         data_T = np.genfromtxt(os.path.join(self.path_T, f'{self.str_d}.csv'), delimiter=';')
@@ -63,7 +58,6 @@ class SNRMapGenerator:
                 data_T = data_T[data_T[:, 0] != v]
 
         return data_T[:, 0].T, data_T[:, 1].T
-
 
     def get_SNR_data(self, lb, rb):
         kvs = []
@@ -81,11 +75,14 @@ class SNRMapGenerator:
         arr = arr[arr[:, 0].argsort()]
         return arr[:, 1]
 
-
     def calc_avg_SNR(self, file, lb, rb):
+        # read the file which is produced by the script SNR_Spectra.py
+        # interpolate between data points, because for initial MAP there are to little data points between the first and
+        # second entry. The data points are not equally distributed.
+
         int_kV = self.get_properties(file)
         data = np.genfromtxt(file, skip_header=3)
-        data = self.interpolate_data(data)  # interpolate data between first and second row (there are usually no data points in the range of interest)
+        data = self.interpolate_data(data)
 
         data_u = data[:, 0]
         data_x = 1 / (2 * data_u)
@@ -97,8 +94,8 @@ class SNRMapGenerator:
     def merge_data(self, kV, T, SNR):
         d_curve = np.vstack((kV, T, SNR)).T
         d_curve.astype(float)
-        self.curves[f'{self.str_d}'] = d_curve
-
+        #self.curves[f'{self.str_d}'] = d_curve
+        return d_curve
 
     def interpolate_data(self, data, idx: tuple=None):
         """

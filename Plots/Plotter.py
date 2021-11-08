@@ -52,7 +52,7 @@ class Plotter:
 
 
 
-    def create_MAP_plot(self, path_result: str, object, Y_style: str = 'log'):
+    def create_plot(self, path_result: str, object, Y_style: str = 'log'):
         fig = plt.figure()
         roi_l = object['ROIs']['lb']
         roi_r = object['ROIs']['rb']
@@ -62,6 +62,27 @@ class Plotter:
             _c = object['curves'][d]
             plt.plot(_c[:, 1], _c[:, 2], linestyle='-', label=d_wu)
             plt.scatter(_c[:, 1], _c[:, 2], marker='o',)
+        plt.legend()
+        plt.title(f'SNR MAP @ {roi_l}-{roi_r} $\mu m$')
+        plt.yscale(Y_style)
+        plt.xlabel('Transmission a.u.')
+        plt.ylabel('SNR/s')
+        sv_path = os.path.join(path_result, 'plots')
+        if not os.path.isdir(sv_path):
+            os.makedirs(sv_path)
+        fig.savefig(os.path.join(path_result, 'plots', f'MAP_ROI-{roi_l}-{roi_r}.pdf'), dpi=600)
+
+
+    def create_v_plot(self, path_result: str, object, Y_style: str = 'log'):
+        fig = plt.figure()
+        roi_l = object['ROIs']['lb']
+        roi_r = object['ROIs']['rb']
+
+        for d in object['curves']:
+            d_wu = self.rm_underscore(d)
+            _c = object['curves'][d]
+            plt.plot(_c[:, 1], _c[:, 2], linestyle='-', label=d_wu)
+            plt.scatter(_c[:, 1], _c[:, 2], marker='o', )
         plt.legend()
         plt.title(f'SNR MAP @ {roi_l}-{roi_r} $\mu m$')
         plt.yscale(Y_style)

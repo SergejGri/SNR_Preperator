@@ -2,7 +2,6 @@ import datetime
 import os
 import gc
 import timeit
-from PIL import Image
 import numpy as np
 from externe_files import file
 from externe_files.SNR_spectra import SNR_Evaluator, ImageSeriesPixelArtifactFilterer
@@ -129,14 +128,14 @@ class SNRPrepperator:
         figure = None
         for a in subf:
             _d = self.filter_area_to_t(a)
-            imgs, imgs_ref, imgs_dark = self.prepare_imgs(self.path_base, dir, a)
+            p_imgs, p_ref, p_dark = self.prepare_imgs(self.path_base, dir, a)
 
             print(f'working on {dir}: {_d} mm')
-            data = file.volume.Reader(imgs, mode='raw', shape=self.img_shape, header=self.header,
+            data = file.volume.Reader(p_imgs, mode='raw', shape=self.img_shape, header=self.header,
                                       dtype='u2').load_range((self.stack_range[0], self.stack_range[-1]))
-            darks = file.volume.Reader(imgs_dark, mode='raw', shape=self.img_shape, header=self.header,
+            darks = file.volume.Reader(p_dark, mode='raw', shape=self.img_shape, header=self.header,
                                        dtype='u2').load_range((self.stack_range[0], self.stack_range[-1]))
-            refs = file.volume.Reader(imgs_ref, mode='raw', shape=self.img_shape, header=self.header,
+            refs = file.volume.Reader(p_ref, mode='raw', shape=self.img_shape, header=self.header,
                                       dtype='u2').load_range((self.stack_range[0], self.stack_range[-1]))
 
             if self.mode_T:
@@ -144,8 +143,8 @@ class SNRPrepperator:
                 self.write_T_data(path_save_T, _d, T, str_voltage)
 
             if self.mode_SNR:
-                self.t_exp = get_t_exp(imgs)
-                SNR_eval, figure = self.calc_SNR(SNR_eval, imgs, path_save_SNR, figure, data, refs, darks, _d, str_voltage)
+                self.t_exp = get_t_exp(p_imgs)
+                SNR_eval, figure = self.calc_SNR(SNR_eval, p_imgs, path_save_SNR, figure, data, refs, darks, _d, str_voltage)
                 figure = SNR_eval.plot(figure, f'{_d} mm')
                 results.append(SNR_eval)
             del data
@@ -185,6 +184,52 @@ class SNRPrepperator:
                              save_path=os.path.join(path_save_SNR,
                                                     f'SNR(u)-{self.watt}_W-{voltage}_kV-{_d}_mm-expTime_{self.t_exp}'))
         return snr_obj, figure
+
+
+    def snr_3D(self):
+        path_save_SNR = os.path.join(self.path_result, self.SNR_name, dir)
+        path_save_T = os.path.join(self.path_result, self.T_name)
+        if not os.path.exists(path_save_T):
+            os.makedirs(path_save_T)
+
+        SNR_eval = SNR_Evaluator()
+        str_voltage = get_voltage(dir)
+
+        results = []
+
+        p_imgs = r''
+        p_refs = r''
+        p_darks = r''
+
+        darks = file.volume.Reader(p_darks, mode='raw', shape=self.img_shape, header=self.header,
+                                   dtype='u2').load_range((self.stack_range[0], self.stack_range[-1]))
+        refs = file.volume.Reader(p_refs, mode='raw', shape=self.img_shape, header=self.header,
+                                  dtype='u2').load_range((self.stack_range[0], self.stack_range[-1]))
+        figure = None
+        for a in subf:
+            _d = self.filter_area_to_t(a)
+
+
+            print(f'working on {dir}: {_d} mm')
+            data = file.volume.Reader(p_imgs, mode='raw', shape=self.img_shape, header=self.header,
+                                      dtype='u2').load_range((self.stack_range[0], self.stack_range[-1]))
+
+
+
+
+            self.t_exp = get_t_exp(p_imgs)
+            SNR_eval, figure = self.calc_SNR(SNR_eval, p_imgs, path_save_SNR, figure, data, refs, darks, _d,
+                                             str_voltage)
+            figure = SNR_eval.plot(figure, f'{_d} mm')
+            results.append(SNR_eval)
+            del data
+            gc.collect()
+            print(f'Done with {dir}: {_d} mm')
+
+        print('finalizing figure...')
+        SNR_eval.finalize_figure(figure, title=f'{dir}_@{self.watt}W', smallest_size=self.x_min,
+                                 save_path=os.path.join(path_save_SNR, f'{str_voltage}kV'))
+
 
     @staticmethod
     def prepare_imgs(path, dir, subf):

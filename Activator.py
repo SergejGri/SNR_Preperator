@@ -1,16 +1,20 @@
+import os
 import gc
 import csv
-from SNR_Calculation.map_db import *
+
+
+from Plots.Plotter import Plotter as PLT
+from Plots.Plotter import TerminalColor as PCOL
 from SNR_Calculation.map_generator import SNRMapGenerator
 from scipy import interpolate
 import numpy as np
-from Plots import Plotter as PLT
 
 
 class Scanner:
     def __init__(self, snr_files: str, T_files: str):
         self.p_SNR_files = snr_files
         self.p_T_files = T_files
+        self.path_fin = os.path.join(os.path.dirname(self.p_T_files), 'MAP')
         self.curves = {}
         self.files = {}
 
@@ -76,7 +80,7 @@ class Curve:
         self.curve[f'{self.d}']['SNR'] = SNR
 
 
-class Activator:
+class Activator():
     def __init__(self, data_T: np.array, snr_files: str, T_files: str, U0: int, ds: list, ssize=None,
                  create_plot: bool = False):
         self.data_T = data_T
@@ -94,7 +98,7 @@ class Activator:
             self.U0 = U0
         else:
             print(f'The adjust Voltage is out of range! U0 = {U0} \n'
-                  + PLT.TerminalColor.BOLD + '...exit...' + PLT.TerminalColor.END)
+                  + PCOL.BOLD + '...exit...' + PCOL.END)
             self.stop_exe = True
             return
         self.kV_interpolation = False
@@ -113,17 +117,22 @@ class Activator:
         self.kV_opt = None
 
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, create_plot: bool = True, *args, **kwargs):
         MAP_object = SNRMapGenerator(scnr=self.scnr, d=self.ds)
         map = MAP_object(spatial_range=self.ssize)
 
         self.read_curves(map=map)
         self.interpolate_curve_piece()
-        self.create_virtual_curves()
+        self.create_virtual_curves(map, MAP_object)
         self.find_intercept()
         if self.intercept_found:
             self.get_opt_SNR_curve()
+
+        self.calc_t_exp()
         self.printer()
+        if create_plot:
+            _plt = PLT()
+            _plt.create_v_plot(path_result=self.scnr.path_fin, object=map)
 
     def get_min_T(self):
         return np.min(self.data_T[0])
@@ -132,19 +141,12 @@ class Activator:
     # TODO: the very first approach of the code contained just lists. I started to rewrite all the code from the
     #  beginning to make dicts as the one container. Couldn't finish it because of to little time. Thats why from here
     #  on there are lists and dicts mixed.
-
     def read_curves(self, map):
-        kV, T, SNR = [], [], []
-        #for d in self.ds:
         for d in map['curves']:
             kV = list(map['curves'][d][:, 0])
             T = list(map['curves'][d][:, 1])
             SNR = list(map['curves'][d][:, 2])
             self.curves.append(Curve(d=d, kV=kV, T=T, SNR=SNR))
-            #files = self.scnr.collect_curve_data(d=d)
-            #for f in files:
-            #    kV, T, SNR = self.scnr.extract_values(file=f)
-            #self.curves.append(Curve(d=d, kV=kV, T=T, SNR=SNR))
 
 
     def interpolate_curve_piece(self):
@@ -156,7 +158,6 @@ class Activator:
         for curve in self.curves:
             # 1)    get left and right neighbours and interpolate between these values
             # 2)    append the values at given index to the c_U0x and c_U0_y
-
             il = curve.kV.index(lb)
             ir = curve.kV.index(rb)
             a, b, c = np.polyfit(curve.T, curve.SNR, deg=2)
@@ -190,13 +191,12 @@ class Activator:
             self.stop_exe = True
             return
 
-    def create_virtual_curves(self):
+    def create_virtual_curves(self, map, MAP_object):
         #   1) read first curve from db
         #   2) read second curve from db
         #   3) calc the number of curves which needed to be created between first and second in respect to the step size
         #   4) take the first data point (SNR/kV) of the second curve and the first data point (SNR/kV) of the first curve
         #      and divide the abs between them into c_num + 1 pieces
-
         step = 0.1
         for i in range(len(self.ds) - 1):
             X = []
@@ -220,11 +220,21 @@ class Activator:
             for k in range(len(c_num)):
                 _T = []
                 _SNR = []
-                _d = round(c_num[k], 2)
                 kV = kV_1
+                _d = round(c_num[k], 2)
                 for _j in range(len(T_1)):
                     _T.append(X[_j][k])
                     _SNR.append(Y[_j][k])
+
+                    #map['curves'][f'{_d}mm'] = {}
+                    #map['curves'][f'{_d}']['kV'] = kV
+                    #map['curves'][f'{_d}']['T'] = _T
+                    #map['curves'][f'{_d}']['SNR'] = _SNR
+                kV = np.asarray(kV)
+                _T = np.asarray(_T)
+                _SNR = np.asarray(_SNR)
+                merged_curve = MAP_object.merge_data(kV=kV, T=_T, SNR=_SNR)
+                map['curves'][f'{_d}'] = merged_curve
                 self.curves.append(Curve(d=_d, kV=kV, T=_T, SNR=_SNR))
 
 
@@ -292,8 +302,9 @@ class Activator:
         pass
 
 
-    def t_exp_calc(self):
-        pass
+    def calc_t_exp(self):
+
+        return t_exp
 
 
     def printer(self):

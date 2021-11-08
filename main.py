@@ -12,11 +12,11 @@ def prep_data(path_base, path_result_prep, ds):
     stk_rng = (30, 100)
     excl = ['40kV', '60kV', '80kV', '120kV', '140kV', '160kV', '180kV'] # must be a string. Example: '50kV' for excluding 50 kV folder
 
-    calc = SNRCalculator(img_shape=image_shape, header=header, path=path_base, magnification=M, nbins=None,
+    calc = SNRPrepperator(img_shape=image_shape, header=header, path=path_base, magnification=M, nbins=None,
                          path_result=path_result_prep, watt=watt, exclude=excl, overwrite=False, mode_T=True,
                          stack_range=stk_rng)
 
-    dirs = SNRCalculator.get_dirs(path_base, excl)
+    dirs = SNRPrepperator.get_dirs(path_base, excl)
 
     for dirr in dirs:
         calc(dir=dirr, subf=ds)
@@ -81,7 +81,7 @@ def main():
                      U0=67,
                      ds=[1, 4, 5, 8, 9],
                      ssize=10)
-    acti()
+    a = acti()
 
     print('test')
 
