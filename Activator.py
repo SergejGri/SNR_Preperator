@@ -123,16 +123,11 @@ class Activator():
         self.Generator = SNRMapGenerator(scnr=self.scanner, d=self.ds)
 
     def __call__(self, create_plot: bool = True, *args, **kwargs):
-
         self.map = self.Generator(spatial_range=self.ssize)
         self.map['T_min'] = self.T_min
-
         self.create_virtual_curves()
-
         self.U0_curve['fit'], self.U0_curve['data'] = self.create_monoKV_curve(kV_val=self.U0)
-
         self.map['U0_curve'] = self.U0_curve
-
         self.curve_minT_intercept(curve=self.U0_curve['fit'])
 
         if self.intercept_found:
@@ -143,7 +138,6 @@ class Activator():
         self.printer()
         if create_plot:
             _plt = PLT()
-            # _plt.create_plot(path_result=self.scanner.path_fin, object=map)
             _plt.create_v_plot(path_result=self.scanner.path_fin, object=self.map, full=True)
 
     def get_min_T(self):
