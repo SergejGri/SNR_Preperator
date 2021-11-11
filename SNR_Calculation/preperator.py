@@ -2,7 +2,6 @@ import datetime
 import os
 import gc
 import timeit
-from PIL import Image
 import numpy as np
 from externe_files import file
 from externe_files.SNR_spectra import SNR_Evaluator, ImageSeriesPixelArtifactFilterer
@@ -112,11 +111,11 @@ class SNRPrepperator:
 
     def __call__(self, dir: str, subf: list):
         if not self.mode_single:
-            self.snr_multi(dir, subf)
+            self.calc_snr(dir, subf)
         else:
             print('coming soon')
 
-    def snr_multi(self, dir, subf):
+    def calc_snr(self, dir, subf):
         path_save_SNR = os.path.join(self.path_result, self.SNR_name, dir)
         path_save_T = os.path.join(self.path_result, self.T_name)
         if not os.path.exists(path_save_T):
@@ -129,14 +128,14 @@ class SNRPrepperator:
         figure = None
         for a in subf:
             _d = self.filter_area_to_t(a)
-            imgs, imgs_ref, imgs_dark = self.prepare_imgs(self.path_base, dir, a)
+            p_imgs, p_ref, p_dark = self.prepare_imgs(self.path_base, dir, a)
 
             print(f'working on {dir}: {_d} mm')
-            data = file.volume.Reader(imgs, mode='raw', shape=self.img_shape, header=self.header,
+            data = file.volume.Reader(p_imgs, mode='raw', shape=self.img_shape, header=self.header,
                                       dtype='u2').load_range((self.stack_range[0], self.stack_range[-1]))
-            darks = file.volume.Reader(imgs_dark, mode='raw', shape=self.img_shape, header=self.header,
+            darks = file.volume.Reader(p_dark, mode='raw', shape=self.img_shape, header=self.header,
                                        dtype='u2').load_range((self.stack_range[0], self.stack_range[-1]))
-            refs = file.volume.Reader(imgs_ref, mode='raw', shape=self.img_shape, header=self.header,
+            refs = file.volume.Reader(p_ref, mode='raw', shape=self.img_shape, header=self.header,
                                       dtype='u2').load_range((self.stack_range[0], self.stack_range[-1]))
 
             if self.mode_T:
@@ -144,8 +143,8 @@ class SNRPrepperator:
                 self.write_T_data(path_save_T, _d, T, str_voltage)
 
             if self.mode_SNR:
-                self.t_exp = get_t_exp(imgs)
-                SNR_eval, figure = self.calc_SNR(SNR_eval, imgs, path_save_SNR, figure, data, refs, darks, _d, str_voltage)
+                self.t_exp = get_t_exp(p_imgs)
+                SNR_eval, figure = self.calc_2D_SNR(SNR_eval, p_imgs, path_save_SNR, figure, data, refs, darks, _d, str_voltage)
                 figure = SNR_eval.plot(figure, f'{_d} mm')
                 results.append(SNR_eval)
             del data
@@ -173,7 +172,7 @@ class SNRPrepperator:
         gc.collect()
         return T
 
-    def calc_SNR(self, snr_obj, path_to_files, path_save_SNR, figure, data, refs, darks, _d, voltage):
+    def calc_2D_SNR(self, snr_obj, path_to_files, path_save_SNR, figure, data, refs, darks, _d, voltage):
         px_map = load_px_map()
         filterer = ImageSeriesPixelArtifactFilterer()
         # filterer = ImageSeriesPixelArtifactFilterer(bad_pixel_map=px_map[self.px_map_slice])
@@ -183,8 +182,56 @@ class SNRPrepperator:
                              pixelsize=self.pixel_size, pixelsize_units=self.pixel_size_units,
                              series_filterer=filterer, u_nbins=self.nbins,
                              save_path=os.path.join(path_save_SNR,
-                                                    f'SNR(u)_{self.watt}W{voltage}kV_{_d}_mm_expTime_{self.t_exp}'))
+                                                    f'SNR(u)-{self.watt}_W-{voltage}_kV-{_d}_mm-expTime_{self.t_exp}'))
         return snr_obj, figure
+
+
+    def calc_3D_snr(self):
+        #path_save_SNR = os.path.join(self.path_result, self.SNR_name, dir)
+        #path_save_T = os.path.join(self.path_result, self.T_name)
+        #if not os.path.exists(path_save_T):
+        #    os.makedirs(path_save_T)
+
+        refs = ImageHolder(path=r'\\132.187.193.8\junk\sgrischagin\2021-08-26-Sergej_SNR-Stufenkeil_130proj_6W\100kV\refs')
+
+        SNR_eval = SNR_Evaluator()
+        str_voltage = get_voltage(dir)
+
+        results = []
+
+        p_imgs = r''
+        p_refs = r''
+        p_darks = r''
+
+        darks = file.volume.Reader(p_darks, mode='raw', shape=self.img_shape, header=self.header,
+                                   dtype='u2').load_range((self.stack_range[0], self.stack_range[-1]))
+        refs = file.volume.Reader(p_refs, mode='raw', shape=self.img_shape, header=self.header,
+                                  dtype='u2').load_range((self.stack_range[0], self.stack_range[-1]))
+        figure = None
+        for a in subf:
+            _d = self.filter_area_to_t(a)
+
+
+            print(f'working on {dir}: {_d} mm')
+            data = file.volume.Reader(p_imgs, mode='raw', shape=self.img_shape, header=self.header,
+                                      dtype='u2').load_range((self.stack_range[0], self.stack_range[-1]))
+
+
+
+
+            self.t_exp = get_t_exp(p_imgs)
+            SNR_eval, figure = self.calc_2D_SNR(SNR_eval, p_imgs, path_save_SNR, figure, data, refs, darks, _d,
+                                                str_voltage)
+            figure = SNR_eval.plot(figure, f'{_d} mm')
+            results.append(SNR_eval)
+            del data
+            gc.collect()
+            print(f'Done with {dir}: {_d} mm')
+
+        print('finalizing figure...')
+        SNR_eval.finalize_figure(figure, title=f'{dir}_@{self.watt}W', smallest_size=self.x_min,
+                                 save_path=os.path.join(path_save_SNR, f'{str_voltage}kV'))
+
 
     @staticmethod
     def prepare_imgs(path, dir, subf):
@@ -208,6 +255,40 @@ class SNRPrepperator:
             if os.path.isdir(os.path.join(pathh, dirr)) and dirr not in exclude and dirr != 'darks':
                 list_dir.append(dirr)
         return list_dir
+
+
+class ImageHolder:
+    def __init__(self, path: np.array, range: tuple = None):
+        self.path = path
+        self.header = 2048
+        self.shape = (1536, 1944)
+        self.images = None
+        self.stack_range = range
+        self.t_exp = None
+
+
+    def __call__(self, *args, **kwargs):
+        self.load_images()
+
+    def load_images(self):
+        if not self.stack_range:
+            self.images = file.volume.Reader(self.path, mode='raw', shape=self.shape, header=self.header,
+                                                    dtype='u2').load_all()
+        else:
+            self.images = file.volume.Reader(self.path, mode='raw', shape=self.shape, header=self.header,
+                                             dtype='u2').load_range((self.stack_range[0], self.stack_range[-1]))
+        return self.images
+
+    def get_t_exp(self):
+        for file in os.listdir(self.path):
+            piece_l = file.split('expTime_')[1]
+            piece_r = piece_l.split('__')[0]
+            t_exp = int(piece_r)
+            self.t_exp = t_exp / 1000
+            break
+
+    def get_shape(self):
+        print((len(self.images), self.shape[0], self.shape[1]))
 
 
 def get_t_exp(path):

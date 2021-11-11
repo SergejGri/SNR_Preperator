@@ -1,13 +1,17 @@
+import os
+import numpy as np
+import matplotlib.pyplot as plt
 from cycler import cycler
 import matplotlib.gridspec as gridspec
-import matplotlib as plt
 
-import SNR_Calculation.map_generator
-from SNR_Calculation.map_db import *
-from SNR_Calculation.map_generator import SNRMapGenerator
 
 
 class Plotter:
+    def __init__(self):
+        self.ft_sz_size = 10
+        self.ft_sz_title = 10
+
+
     def create_plot_v1(self, path_result: str, act_object, ds: list, Y_style: str = 'log'):
         fig = plt.figure()
         ax = fig.add_subplot()
@@ -48,22 +52,63 @@ class Plotter:
 
 
 
-    def create_MAP_plot(self, path_result: str, object, Y_style: str = 'log'):
+    def create_plot(self, path_result: str, object, Y_style: str = 'log'):
         fig = plt.figure()
         roi_l = object['ROIs']['lb']
         roi_r = object['ROIs']['rb']
-        for d in [2, 4, 6, 8]:
-            curve = f'{d}_mm'
-            plt.plot(object['curves'][curve]['T'], object['curves'][curve]['SNR'], linestyle='-', label=curve)
-            plt.scatter(object['curves'][curve]['T'], object['curves'][curve]['SNR'], marker='o',)
+
+        for d in object['d_curves']:
+            d_wu = self.rm_underscore(d)
+            _c = object['curves'][d]
+            plt.plot(_c[:, 1], _c[:, 2], linestyle='-', label=d_wu)
+            plt.scatter(_c[:, 1], _c[:, 2], marker='o',)
         plt.legend()
         plt.title(f'SNR MAP @ {roi_l}-{roi_r} $\mu m$')
         plt.yscale(Y_style)
         plt.xlabel('Transmission a.u.')
         plt.ylabel('SNR/s')
+        sv_path = os.path.join(path_result, 'plots')
+        if not os.path.isdir(sv_path):
+            os.makedirs(sv_path)
+        fig.savefig(os.path.join(path_result, 'plots', f'MAP_ROI-{roi_l}-{roi_r}.pdf'), dpi=600)
+
+
+    def create_v_plot(self, path_result: str, object, Y_style: str = 'log', full: bool = False):
+        fig = plt.figure()
+        ax = fig.add_subplot()
+        roi_l = object['ROIs']['lb']
+        roi_r = object['ROIs']['rb']
+
+        sorted_curves = dict(sorted(object['d_curves'].items()))
+        for d in sorted_curves:
+            _c = sorted_curves[d]
+            is_int = self.check_ds_nature(d)
+            if is_int:
+                plt.plot(_c[:, 1], _c[:, 2], linestyle='-', alpha=1.0, label=f'{d} mm')
+                plt.scatter(_c[:, 1], _c[:, 2],  marker='o', alpha=1.0)
+            else:
+                plt.plot(_c[:, 1], _c[:, 2], linestyle='-', alpha=0.2, c='grey')
+                #plt.scatter(_c[:, 1], _c[:, 2], marker='o', alpha=0.2, c='grey')
+
+        if full:
+            _c_U0 = object['U0_curve']['data']
+            _c_opt = object['opt_curve']['data']
+            plt.plot(_c_U0[:, 0], _c_U0[:, 1])
+            plt.plot(_c_opt[:, 0], _c_opt[:, 1])
+            plt.axvline(x=object['T_min'], c='green', linestyle='--', alpha=0.5, linewidth=1)
+            tmin = object['T_min']
+            ax.text(0.0, 0.6, f'T min: {tmin}')
+
+        plt.legend()
+        plt.title(f'SNR MAP @ {roi_l}-{roi_r} $\mu m$')
+        plt.yscale(Y_style)
+        plt.xlabel('Transmission a.u.')
+        plt.ylabel('SNR/s')
+        sv_path = os.path.join(path_result, 'plots')
+        if not os.path.isdir(sv_path):
+            os.makedirs(sv_path)
         plt.show()
-        fig.savefig(os.path.join(path_result, f'MAP_ROI-{roi_l}-{roi_r}.pdf'), dpi=600)
-        print('test')
+        fig.savefig(os.path.join(path_result, 'plots', f'MAP_ROI-{roi_l}-{roi_r}.pdf'), dpi=600)
 
 
     def create_evolution_plot(self,path_snr:str, path_T:str, path_result: str, object: object, d: int, spatial_list: list = None, Y_style: str = 'log'):
@@ -176,16 +221,21 @@ class Plotter:
         plt.show()
         fig.savefig(os.path.join(path2, f'MAP_compare.pdf'), dpi=600)
 
-    @staticmethod
-    def func_poly(x, a, b, c):
-        return a * x ** 2 + b * x + c
+    def rm_underscore(self, d):
+        d = d.replace('_', ' ')
+        d = float(d)
+        return d
 
     @staticmethod
-    def whole_num(num):
-        if num - int(num) == 0:
+    def check_ds_nature(var):
+        if var % 1.0 == 0.0:
             return True
         else:
             return False
+
+    @staticmethod
+    def func_poly(x, a, b, c):
+        return a * x ** 2 + b * x + c
 
 
 def sandpaper_test():
