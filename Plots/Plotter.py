@@ -85,7 +85,7 @@ class Plotter:
             is_int = self.check_ds_nature(d)
             if is_int:
                 plt.plot(_c[:, 1], _c[:, 2], linestyle='-', alpha=1.0, label=f'{d} mm')
-                #plt.scatter(_c[:, 1], _c[:, 2],  marker='o', alpha=1.0)
+                plt.scatter(_c[:, 1], _c[:, 2],  marker='o', alpha=1.0)
             else:
                 plt.plot(_c[:, 1], _c[:, 2], linestyle='-', alpha=0.2, c='grey')
                 #plt.scatter(_c[:, 1], _c[:, 2], marker='o', alpha=0.2, c='grey')
