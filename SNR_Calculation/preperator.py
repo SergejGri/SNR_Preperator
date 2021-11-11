@@ -111,11 +111,11 @@ class SNRPrepperator:
 
     def __call__(self, dir: str, subf: list):
         if not self.mode_single:
-            self.snr_multi(dir, subf)
+            self.calc_snr(dir, subf)
         else:
             print('coming soon')
 
-    def snr_multi(self, dir, subf):
+    def calc_snr(self, dir, subf):
         path_save_SNR = os.path.join(self.path_result, self.SNR_name, dir)
         path_save_T = os.path.join(self.path_result, self.T_name)
         if not os.path.exists(path_save_T):
@@ -144,7 +144,7 @@ class SNRPrepperator:
 
             if self.mode_SNR:
                 self.t_exp = get_t_exp(p_imgs)
-                SNR_eval, figure = self.calc_SNR(SNR_eval, p_imgs, path_save_SNR, figure, data, refs, darks, _d, str_voltage)
+                SNR_eval, figure = self.calc_2D_SNR(SNR_eval, p_imgs, path_save_SNR, figure, data, refs, darks, _d, str_voltage)
                 figure = SNR_eval.plot(figure, f'{_d} mm')
                 results.append(SNR_eval)
             del data
@@ -172,7 +172,7 @@ class SNRPrepperator:
         gc.collect()
         return T
 
-    def calc_SNR(self, snr_obj, path_to_files, path_save_SNR, figure, data, refs, darks, _d, voltage):
+    def calc_2D_SNR(self, snr_obj, path_to_files, path_save_SNR, figure, data, refs, darks, _d, voltage):
         px_map = load_px_map()
         filterer = ImageSeriesPixelArtifactFilterer()
         # filterer = ImageSeriesPixelArtifactFilterer(bad_pixel_map=px_map[self.px_map_slice])
@@ -186,11 +186,13 @@ class SNRPrepperator:
         return snr_obj, figure
 
 
-    def snr_3D(self):
-        path_save_SNR = os.path.join(self.path_result, self.SNR_name, dir)
-        path_save_T = os.path.join(self.path_result, self.T_name)
-        if not os.path.exists(path_save_T):
-            os.makedirs(path_save_T)
+    def calc_3D_snr(self):
+        #path_save_SNR = os.path.join(self.path_result, self.SNR_name, dir)
+        #path_save_T = os.path.join(self.path_result, self.T_name)
+        #if not os.path.exists(path_save_T):
+        #    os.makedirs(path_save_T)
+
+        refs = ImageHolder(path=r'\\132.187.193.8\junk\sgrischagin\2021-08-26-Sergej_SNR-Stufenkeil_130proj_6W\100kV\refs')
 
         SNR_eval = SNR_Evaluator()
         str_voltage = get_voltage(dir)
@@ -218,8 +220,8 @@ class SNRPrepperator:
 
 
             self.t_exp = get_t_exp(p_imgs)
-            SNR_eval, figure = self.calc_SNR(SNR_eval, p_imgs, path_save_SNR, figure, data, refs, darks, _d,
-                                             str_voltage)
+            SNR_eval, figure = self.calc_2D_SNR(SNR_eval, p_imgs, path_save_SNR, figure, data, refs, darks, _d,
+                                                str_voltage)
             figure = SNR_eval.plot(figure, f'{_d} mm')
             results.append(SNR_eval)
             del data
@@ -253,6 +255,40 @@ class SNRPrepperator:
             if os.path.isdir(os.path.join(pathh, dirr)) and dirr not in exclude and dirr != 'darks':
                 list_dir.append(dirr)
         return list_dir
+
+
+class ImageHolder:
+    def __init__(self, path: np.array, range: tuple = None):
+        self.path = path
+        self.header = 2048
+        self.shape = (1536, 1944)
+        self.images = None
+        self.stack_range = range
+        self.t_exp = None
+
+
+    def __call__(self, *args, **kwargs):
+        self.load_images()
+
+    def load_images(self):
+        if not self.stack_range:
+            self.images = file.volume.Reader(self.path, mode='raw', shape=self.shape, header=self.header,
+                                                    dtype='u2').load_all()
+        else:
+            self.images = file.volume.Reader(self.path, mode='raw', shape=self.shape, header=self.header,
+                                             dtype='u2').load_range((self.stack_range[0], self.stack_range[-1]))
+        return self.images
+
+    def get_t_exp(self):
+        for file in os.listdir(self.path):
+            piece_l = file.split('expTime_')[1]
+            piece_r = piece_l.split('__')[0]
+            t_exp = int(piece_r)
+            self.t_exp = t_exp / 1000
+            break
+
+    def get_shape(self):
+        print((len(self.images), self.shape[0], self.shape[1]))
 
 
 def get_t_exp(path):

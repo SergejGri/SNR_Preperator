@@ -64,29 +64,24 @@ def main():
     #    prep_data(_path, path_to_result, ds=ds)
 
 
-
-
-    snr_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\2021-09-17_Evaluation\2021-9-17_SNR'
-    T_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\2021-09-17_Evaluation\2021-9-17_T'
+    snr_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\2021-08-30_Evaluation\SNR'
+    T_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\2021-08-30_Evaluation\Transmission'
     #result = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-10-01_Sergej_SNR-Stufenkeil_6W_130proj_0-10mm\MAP'
 
 
     # 1) positioniere Objekt auf dem Drehteller und starte fast_CT
     #arr_T = fast_CT()
-    arr_T = [[0.113, 0.178, 0.011], [0.0, 10, 20]]
+    arr_T = [[0.643, 0.225, 0.421, 0.351, 0.359, 0.473], [0.0, 5.0, 10.0, 15.0, 20.0, 25.0]]
     # 2) der ausgespuckte Array muss in den Activator gepackt werden um U_best bei einer gegebenen Raumauflösung zu bekommen
     acti = Activator(data_T=arr_T,
                      snr_files=snr_data,
                      T_files=T_data,
-                     U0=67,
+                     U0=94,
+                     snr_user=1.0,
                      ds=[1, 4, 5, 8, 9],
-                     ssize=10)
-    a = acti()
-
+                     ssize=(150, 250))
+    acti()
     print('test')
-
-
-
 
 
 

@@ -22,9 +22,13 @@ class SNRMapGenerator:
 
         self.ds = d
         self.str_d = None
+        self.T_min = None
         self.curves = {}
         self.ROI = {}
         self.MAP_object = {}
+        self.U0_curve = None
+        self.d_opt = None
+        self.opt_curve = None
 
         if kV_filter is not None:
             self.kV_filter = kV_filter
@@ -40,10 +44,11 @@ class SNRMapGenerator:
 
         for i in range(len(self.ds)):
             self.str_d = f'{self.ds[i]}_mm'
+            #self.float_d = float(self.ds[i])
             kV, T = self.get_T_data()
             SNR = self.get_SNR_data(self.ROI['lb'], self.ROI['rb'])
-            self.curves[f'{self.str_d}'] = self.merge_data(kV=kV, T=T, SNR=SNR)
-        self.MAP_object['curves'] = self.curves
+            self.curves[float(f'{self.ds[i]}')] = self.merge_data(kV=kV, T=T, SNR=SNR)
+        self.MAP_object['d_curves'] = self.curves
         self.write_curve_files(self.curves)
 
         return self.MAP_object
@@ -137,9 +142,10 @@ class SNRMapGenerator:
 
     def write_curve_files(self, curves):
         for c in curves:
+            c = int(c)
             if not os.path.isdir(self.path_fin):
                 os.makedirs(self.path_fin)
-            np.savetxt(os.path.join(self.path_fin, f'{c}.csv'), self.curves[c], delimiter=',')
+            np.savetxt(os.path.join(self.path_fin, f'{c}mm.csv'), self.curves[c], delimiter=',')
 
 
     def pick_value(self):
@@ -176,38 +182,6 @@ class SNRMapGenerator:
             print('check naming convention of your passed files.')
             pass
         return int_kV
-
-    # TODO: implement more robust file finding routine
-    '''def collect_data(self, d):
-        _loc_list = []
-        for _dir in os.listdir(self.path_snr):
-            _subdir = os.path.join(self.path_snr, _dir)
-            for file in os.listdir(_subdir):
-                if file.endswith('.txt') and f'_{d}_mm' in file:
-                    _loc_list.append(os.path.join(_subdir, file))
-        self.d_txt_files[f'{d}_mm'] = _loc_list'''
-
-
-    '''def write_data(self):
-        if not os.path.exists(self.path_fin):
-            os.makedirs(self.path_fin)
-        np.savetxt(os.path.join(self.path_fin, f'{self.d_mm}.csv'), self.d_curve, delimiter=',', encoding='utf-8')
-
-    def write_data_to_DB(self):
-        db = DB(self.path_db)
-        for file in os.listdir(self.path_db):
-            if file.endswith('.csv') or file.endswith('.CSV'):
-                working_file = os.path.join(self.path_db, file)
-                d = int(file.split('_mm')[0])
-                with open(working_file) as f:
-                    content = f.readlines()
-                    content = [x.strip() for x in content]
-                    for _c in range(len(content)):
-                        line = content[_c]
-                        kV = float(line.split(',')[0])
-                        T = float(line.split(',')[1])
-                        SNR = float(line.split(',')[2])
-                        db.add_data(d, voltage=kV, T=T, SNR=SNR, mode='raw')'''
 
 
 # TODO: implement a robust curve- / thickness-chose-mechanism
