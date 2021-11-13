@@ -71,12 +71,12 @@ def main():
 
     # 1) positioniere Objekt auf dem Drehteller und starte fast_CT
     #arr_T = fast_CT()
-    arr_T = [[0.643, 0.225, 0.421, 0.351, 0.359, 0.473], [0.0, 5.0, 10.0, 15.0, 20.0, 25.0]]
+    arr_T = [[0.513, 0.220, 0.319, 0.419, 0.351, 0.359, 0.473], [0.0, 5.0, 7.0, 10.0, 15.0, 20.0, 25.0]]
     # 2) der ausgespuckte Array muss in den Activator gepackt werden um U_best bei einer gegebenen Raumauflösung zu bekommen
     acti = Activator(data_T=arr_T,
                      snr_files=snr_data,
                      T_files=T_data,
-                     U0=94,
+                     U0=104,
                      snr_user=1.0,
                      ds=[1, 4, 5, 8, 9],
                      ssize=(150, 250))
