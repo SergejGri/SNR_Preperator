@@ -88,23 +88,31 @@ class Plotter:
 
             is_int = self.check_ds_nature(d)
 
+            idx_100 = np.where(_c_fit[:, 0] == 100.0)
+            idx_40 = np.where(_c_fit[:, 0] == 40.0)
+            idx_180 = np.where(_c_fit[:, 0] == 180.0)
             if is_int and d in object['ds']:
-                ax.scatter(_c_fit[:, 1][_c_max_idx], _c_fit[:, 2][_c_max_idx], marker='x', alpha=1.0, s=3, c='grey')
-                a = ax.plot(_c_fit[:, 1], _c_fit[:, 2], linestyle='-', linewidth='2', alpha=1.0, label=f'{d} mm')
+                ax.scatter(_c_fit[:, 1][_c_max_idx], _c_fit[:, 2][_c_max_idx], marker='x', alpha=1.0, s=15, c='grey')
+                ax.scatter(_c_fit[:, 1], _c_fit[:, 2], marker='o', alpha=0.7)
+                #ax.plot(_c_fit[:, 1], _c_fit[:, 2], linestyle='-', linewidth='2', alpha=1.0, label=f'{d} mm')
                 ax.scatter(_c_data[:, 1], _c_data[:, 2], marker='o', alpha=1.0)
+
+                ax.scatter(_c_fit[:, 1][idx_100], _c_fit[:, 2][idx_100], c='red')
+                ax.scatter(_c_fit[:, 1][idx_40], _c_fit[:, 2][idx_40], c='red')
+                ax.scatter(_c_fit[:, 1][idx_180], _c_fit[:, 2][idx_180], c='red')
             else:
-                ax.scatter(_c_fit[:, 1][_c_max_idx], _c_fit[:, 2][_c_max_idx], marker='o', alpha=0.2, s=3, c='grey')
+                ax.scatter(_c_fit[:, 1][_c_max_idx], _c_fit[:, 2][_c_max_idx], marker='x', alpha=0.8, s=10, c='grey')
                 ax.plot(_c_data[:, 1], _c_data[:, 2], linestyle='-', linewidth=1, alpha=0.15, c='grey')
 
 
         if full and object['intercept_found']:
             tt = ax.axvline(x=object['T_min'], c='green', linestyle='--', alpha=0.5, linewidth=1)
-            tmin = object['T_min']
+
 
         _c_U0 = object['U0_curve']['fit']
         _c_opt = object['opt_curve']['fit']
-        ax.plot(_c_U0[:, 0], _c_U0[:, 1], linewidth=2, label='$U_{0}$ curve')
-        ax.plot(_c_opt[:, 0], _c_opt[:, 1],linewidth=2, label='$U_{opt}$ curve')
+        ax.plot(_c_U0[:, 0], _c_U0[:, 1], linewidth=1.5, label='$U_{0}$ curve')
+        ax.plot(_c_opt[:, 0], _c_opt[:, 1],linewidth=1.5, label='$U_{opt}$ curve', c='red')
 
         ax.legend(loc="upper left")
         ax.set_title(f'SNR MAP @ {roi_l}-{roi_r} $\mu m$')

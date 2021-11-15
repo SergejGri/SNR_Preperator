@@ -3,6 +3,7 @@ import time
 import numpy as np
 import os
 import matplotlib.pyplot as plt
+import helpers as h
 from Plots import Plotter
 
 
@@ -44,14 +45,16 @@ class SNRMapGenerator:
 
         for i in range(len(self.ds)):
             self.str_d = f'{self.ds[i]}_mm'
+            self.curves[float(f'{self.ds[i]}')] = {}
+
             kV, T = self.get_T_data()
             SNR = self.get_SNR_data(self.ROI['lb'], self.ROI['rb'])
-            self.curves[float(f'{self.ds[i]}')] = {}
-            kV_fit = np.linspace(kV[0], kV[-1], 141)
-            x, y = self.poly_fit(T, SNR, 141)
 
-            self.curves[float(f'{self.ds[i]}')]['fit'] = self.merge_data(kV=kV_fit, T=x, SNR=y)
+            kV_fit = np.linspace(kV[0], kV[-1], 141)
+            x, y = h.poly_fit(T, SNR, 141)
+
             self.curves[float(f'{self.ds[i]}')]['data'] = self.merge_data(kV=kV, T=T, SNR=SNR)
+            self.curves[float(f'{self.ds[i]}')]['fit'] = self.merge_data(kV=kV_fit, T=x, SNR=y)
 
         self.MAP_object['d_curves'] = self.curves
         self.write_curve_files(self.curves)
@@ -104,7 +107,6 @@ class SNRMapGenerator:
     def merge_data(self, kV, T, SNR):
         d_curve = np.vstack((kV, T, SNR)).T
         d_curve.astype(float)
-        #self.curves[f'{self.str_d}'] = d_curve
         return d_curve
 
     def interpolate_data(self, data, idx: tuple=None):
@@ -138,6 +140,9 @@ class SNRMapGenerator:
             inter_NPS = np.interp(xvals, u, NPS).reshape(-1, 1)
             data = np.concatenate((xvals, inter_SNR, inter_SPS, inter_NPS), axis=1)
             return data
+
+    def piecewise_interpolatio(self):
+        pass
 
 
     def reset(self):
