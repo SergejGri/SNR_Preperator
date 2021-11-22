@@ -16,7 +16,7 @@ def prep_data(path_base, path_result_prep):
     calc = SNRCalculator(img_shape=image_shape, header=header, path=path_base, magnification=M, nbins=300,
                          path_result=path_result_prep, watt=watt, exclude=excl, overwrite=False)
 
-    dirs = SNRCalculator.get_dirs(path_base, excl)
+    dirs = SNRCalculator.get_properties(path_base, excl)
     filters = SNRCalculator.get_df()
 
 

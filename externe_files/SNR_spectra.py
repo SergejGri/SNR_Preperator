@@ -1,40 +1,49 @@
-''' evaluation for SNR spectra measurements
+# Copyright 2015-2020 University Würzburg.
+#
+# Developed at the Lehrstuhl für Röntgenmikroskopie/Universität Würzburg, Josef-Martin-Weg 63, 97074 Würzburg, Germany
+#
+# Redistribution and use in source and binary forms, with or without modification, are permitted provided that the
+# following conditions are met:
+#
+# 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following
+#    disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following
+#    disclaimer in the documentation and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING,
+# BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+# IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
+# OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+# ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-see the corresponding jupyter notebook for usage examples and more documentation
 
-written by Maximilian Ullherr, maximilian.ullherr@physik.uni-wuerzburg.de, Lehrstuhl fuer Roentgenmikroskopie/Universitaet Wuerzburg, Josef-Martin-Weg 63, 97074 Wuerzburg, Germany
+import json
+import os
 
-License for this code:
+import numpy as np
+from scipy.ndimage import median_filter, gaussian_filter
 
-Copyright 2015-2020 University Wuerzburg.
+from externe_files import image, file
 
-Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
-
-1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-
-THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-'''
-# Developed at the Lehrstuhl fuer Roentgenmikroskopie/Universitaet Wuerzburg, Josef-Martin-Weg 63, 97074 Wuerzburg, Germany
 version = 1, 2
 version_str = f'v{".".join([str(v) for v in version])}'
 version_date = '2020-03-04'
 print(f'{__name__} version {".".join([str(v) for v in version])} ({version_date})')
 
 
-import os, json, numpy as np
-from scipy.ndimage import median_filter, gaussian_filter
-from externe_files import image, file
-
 try:
     import matplotlib.pyplot as plt
     import matplotlib as mpl
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+
     def get_color_ls(index):
-        color = colors[index%len(colors)]
+        color = colors[index % len(colors)]
         ls = ['-', '--', ':'][(index//len(colors)) % 3]
         return color, ls
-except ImportError: plt = None
+except ImportError:
+    plt = None
 
 VERBOSE = True
 
@@ -210,7 +219,8 @@ class SNR_Evaluator():
             self.properties["refs_shape"] = tuple(int(i) for i in refs.shape)
             self.properties["darks_shape"] = tuple(int(i) for i in darks.shape)
 
-            if refs.mean() < darks.mean(): print('WARNING: refs mean is smaller than darks mean, arguments swapped?')
+            if refs.mean() < darks.mean():
+                print('WARNING: refs mean is smaller than darks mean, arguments swapped?')
 
             data_im = np.nanmean(images, axis=0)
             ref_im = np.nanmean(refs, axis=0)
@@ -249,7 +259,7 @@ class SNR_Evaluator():
 
         return self.result()
 
-    def scale_power_spectra(self, pixelsize, ndim):
+    def scale_power_spectra(self, pixelsize, ndim, advantage=None):
         if pixelsize is not None:
             self.u *= 1/pixelsize
 
@@ -309,8 +319,9 @@ class SNR_Evaluator():
         assert_base_folder_exists(save_name)
         np.savetxt(save_name + '.txt', data,
                    header="SNR estimate result (radially averaged spectra)\n"
-                          "spatial frequency, SNR, signal power spectrum, noise power spectrum\n"+json.dumps(self.properties)
-                          )
+                          "spatial frequency, SNR, signal power spectrum, noise power spectrum\n" +
+                   json.dumps(self.properties)
+                   )
 
         file.image.save(-self.avg_image.astype('f4'), save_name + '.tif')
 
@@ -318,7 +329,8 @@ class SNR_Evaluator():
         SNR = np.genfromtxt(save_name).swapaxes(0, 1)
         self.u, self.SNR, self.S, self.N = SNR
         with open(save_name) as file:
-            file.readline(); file.readline()
+            file.readline()
+            file.readline()
             properties = file.readline()
             if properties.startswith('# {'):
                 self.properties = json.loads(properties[2:])
@@ -351,7 +363,6 @@ class SNR_Evaluator():
                 figure.tight_layout(rect=(0, 0, 1, 1), pad=0.05)
                 gs = mpl.gridspec.GridSpec(1, 7, figure=figure)
                 axes = figure.add_subplot(gs[:3]), figure.add_subplot(gs[3:5]), figure.add_subplot(gs[5:])
-                #figure, axes = plt.subplots(1, 3, figsize=(12, 4), tight_layout=True)
                 [ax.set_xlabel(xlabel) for ax in axes]
                 [axes[k].set_ylabel(t) for k, t in enumerate(('SNR', 'signal power spectrum', 'noise power spectrum'))]
 
@@ -379,12 +390,13 @@ class SNR_Evaluator():
             smallest_size = self.properties["pixelsize"]
         for k, ax in enumerate(figure.axes):
             apply_u_scale(ax, 1, units=self.properties["pixelsize_units"], max_val=1/(2*smallest_size),
-                          num_ticks=num_ticks if k==0 else (num_ticks//2+1))
+                          num_ticks=num_ticks if k == 0 else (num_ticks//2+1))
         figure.axes[0].legend()
         if title is not None:
             figure.suptitle(title)
         if save_path is not None:
-            if '.' not in save_path: save_path += '.pdf'
+            if '.' not in save_path:
+                save_path += '.pdf'
             figure.savefig(save_path)
 
 
@@ -401,22 +413,7 @@ estimate_SNR.__doc__ = SNR_Evaluator.estimate_SNR.__doc__
 #  ======= remove pixel series artifacts =======
 class ImageSeriesPixelArtifactFilterer:
     ''' class to filter pixel defects for use with SNR_Estimator '''
-
-    # default: verbose = False
-    # default: speckle_std_threshold = 5
-    # default: speckle_iterations = 2
-    # default: speckle_warn_fraction = 0.01
     verbose = True
-    speckle_std_threshold = 2.4
-    speckle_iterations = 2
-    speckle_warn_fraction = 0.01
-
-    # default: defect_size = 2
-    # default: defect_threshold = 0.3
-    # default: efect_warn_fraction = 0.01
-    defect_size = 1
-    defect_threshold = 0.2  # ONLY fitting for [0,1]-data (normalized absorption measurement)
-    defect_warn_fraction = 0.01
 
     def __init__(self, filter_defects=True, filter_speckles=True, remove_nonfinite=True, bad_pixel_map=None):
         '''
@@ -443,9 +440,20 @@ class ImageSeriesPixelArtifactFilterer:
         self.remove_nonfinite = remove_nonfinite
         self.bad_pixel_map = bad_pixel_map
 
-    def __call__(self, image_series: np.ndarray, inplace=False):
+        # default values
+        # self.speckle_std_threshold = 5
+        # self.speckle_iterations = 2
+        # self.speckle_warn_fraction = 0.01
 
-        print(image_series.shape)
+        self.speckle_std_threshold = 3
+        self.speckle_iterations = 2
+        self.speckle_warn_fraction = 0.01
+
+        self.defect_size = 2
+        self.defect_threshold = 0.3  # ONLY fitting for [0,1]-data (normalized absorption measurement)
+        self.defect_warn_fraction = 0.01
+
+    def __call__(self, image_series: np.ndarray, inplace=False):
         if not inplace:
             image_series = np.copy(image_series)
 
@@ -479,7 +487,7 @@ class ImageSeriesPixelArtifactFilterer:
 
             for k in np.arange(images.shape[0]):
                 locations = np.logical_or((images[k] > (mean_image + self.speckle_std_threshold*std_image)),
-                                       (images[k] < (mean_image - self.speckle_std_threshold*std_image)))
+                                          (images[k] < (mean_image - self.speckle_std_threshold*std_image)))
                 frac_sum += np.mean(locations)
                 np.copyto(images[k], mean_image, where=locations)
 
@@ -527,7 +535,7 @@ class ImageSeriesPixelArtifactFilterer:
 
 # ====== helpers ======
 def detect_lower_SNR_limit(SNR):
-    loc = SNR<0
+    loc = SNR < 0
     if np.any(loc):
         samples = np.copy(SNR[loc])
         m = np.abs(samples.mean())
@@ -545,7 +553,8 @@ def show_image(image, title=None, figsize=None, vrange=None, perc_val=(1, 99)):
     if vrange is None:
         vrange = np.nanpercentile(image, perc_val)
     ax.imshow(image, cmap=plt.cm.gray, interpolation='none', vmin=vrange[0], vmax=vrange[1])
-    if title is not None: ax.set_title(title)
+    if title is not None:
+        ax.set_title(title)
     ax.axis('off')
     return fig
 
@@ -558,7 +567,6 @@ def assert_base_folder_exists(fname):
         pass
 
 
-
 # ======= helpers =======
 def generate_test_data(shape=(500, 500), base_intensity=100, nproj=100, nfeatures=100, gauss_blur=0.7,
                        add_pixel_defects=False, feature_max_transparency=0.05):
@@ -568,7 +576,8 @@ def generate_test_data(shape=(500, 500), base_intensity=100, nproj=100, nfeature
         size = np.random.randint(10, max_object_size, size=2)
         origin = np.random.randint(20, test_proj.shape[0] - size[0] - 20), np.random.randint(20, test_proj.shape[1] - size[
             1] - 20)
-        test_proj[origin[0]:origin[0] + size[0], origin[1]:origin[1] + size[1]] *= np.random.randint(int(100*(1-feature_max_transparency)), 100) / 100
+        test_proj[origin[0]:origin[0] + size[0], origin[1]:origin[1] + size[1]
+                  ] *= np.random.randint(int(100*(1-feature_max_transparency)), 100) / 100
 
     test_proj = gaussian_filter(test_proj, gauss_blur)
     if add_pixel_defects:
@@ -586,11 +595,12 @@ def generate_test_data(shape=(500, 500), base_intensity=100, nproj=100, nfeature
     test_projs = np.random.poisson(test_projs).astype('f8')
     return test_projs, test_proj
 
+
 def apply_u_scale(ax, pixelsize, units='px', max_val=0.5, num_ticks=9, labelevery=1):
     ax.set_xlim(0, max_val)
     u_ticks = np.linspace(0, max_val, num_ticks)
     ax.set_xticks(u_ticks)
-    xticklabels = ['$\infty$',]
+    xticklabels = ['$\infty$', ]
     xticklabels += ['{:.2f}'.format(pixelsize/(2*u)) for u in u_ticks[1:]]
     if labelevery > 1:
         xticklabels[::labelevery] = ('',)*len(xticklabels[::labelevery])
