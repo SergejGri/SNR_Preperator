@@ -3,7 +3,7 @@ import gc
 import csv
 import collections
 from matplotlib import pyplot as plt
-
+import helpers as h
 from Plots.Plotter import Plotter as PLT
 from Plots.Plotter import TerminalColor as PCOL
 from SNR_Calculation.map_generator import SNRMapGenerator
@@ -68,22 +68,9 @@ class Scanner:
         return int(d_str)
 
 
-class Curve:
-    def __init__(self, d, kV: np.array, T: np.array, SNR: np.array):
-        self.d = d
-        self.kV = kV
-        self.T = T
-        self.SNR = SNR
-
-        self.curve = {f'{self.d}': {}}
-        self.curve[f'{self.d}']['kV'] = kV
-        self.curve[f'{self.d}']['T'] = T
-        self.curve[f'{self.d}']['SNR'] = SNR
-
-
 class Activator():
     def __init__(self, data_T: np.array, snr_files: str, T_files: str, U0: int, ds: list, snr_user: float, ssize=None,
-                 create_plot: bool = False):
+                 vir_curve_step: float = None, create_plot: bool = False):
         self.fast_CT_data = data_T
         self.T_min = self.get_min_T()
         if ssize:
@@ -110,29 +97,37 @@ class Activator():
         self.x_U0_points = []
         self.y_U0_points = []
 
+        if vir_curve_step is None:
+            self.vir_curve_step = 0.1
+        else:
+            self.vir_curve_step = vir_curve_step
         self.intercept = {'x': {}, 'y': {}}
         self.intercept_found = False
         self.d_opt = None
         self.X_opt = None
         self.Y_opt = None
-        #self.kV_opt = None
-        self.opt_curve = {'val': None,'fit': {}, 'data': {}}
+        self.U_opt = {'val': None, 'fit': {}, 'data': {}}
         self.opt_data_points = None
         self.map = None
-        self.U0_curve = {'val': self.U0, 'fit': {}, 'data': {}}
+        self.U_0 = {'val': self.U0, 'fit': {}, 'data': {}}
         self.Generator = SNRMapGenerator(scnr=self.scanner, d=self.ds)
 
     def __call__(self, create_plot: bool = True, *args, **kwargs):
         self.map = self.Generator(spatial_range=self.ssize)
         self.map['T_min'] = self.T_min
+        self.map['ds'] = self.ds
         self.create_virtual_curves()
-        self.U0_curve['fit'], self.U0_curve['data'] = self.create_monoKV_curve(kV_val=self.U0)
-        self.map['U0_curve'] = self.U0_curve
-        self.curve_minT_intercept(curve=self.U0_curve['fit'])
+
+        self.U_0['fit'], self.U_0['data'] = self.create_monoKV_curve(kV_val=self.U0)
+        self.map['U0_curve'] = self.U_0
+        self.d_curve_T_intercept(curve=self.U_0['fit'])
 
         if self.intercept_found:
             self.get_opt_SNR_curve()
-            self.map['opt_curve'] = self.opt_curve
+            self.map['opt_curve'] = self.U_opt
+            self.map['intercept_found'] = True
+        else:
+            self.map['intercept_found'] = False
 
         self.calc_t_exp()
         self.printer()
@@ -140,52 +135,13 @@ class Activator():
             _plt = PLT()
             _plt.create_v_plot(path_result=self.scanner.path_fin, object=self.map, full=True)
 
+
     def get_min_T(self):
         return np.min(self.fast_CT_data[0])
 
-    # TODO: the very first approach of the code contained just lists as container for curves and datapoints. I started
-    #  to rewrite all the code from the beginning to make dicts as the one container. Couldn't finish it because of to
-    #  little time. That's why from here on there are lists and dicts mixed.
-    #def read_curves(self, map):
-    #    for d in map['d_curves']:
-    #        kV = np.asarray(map['d_curves'][d][:, 0])
-    #        T = np.asarray(map['d_curves'][d][:, 1])
-    #        SNR = np.asarray(map['d_curves'][d][:, 2])
-    #        self.curves.append(Curve(d=d, kV=kV, T=T, SNR=SNR))
-
-    def interpolate_curve_piece(self, kV_val):
-        # 1)    get left and right neighbours and interpolate between these values
-        # 2)    create linspaced values and fit in the area between left and right neighbours
-        # 3)    pick fitted x and fitted y value at given 'distance'
-        # 4)    distance: e.g. U0 is set to 67kV then it is 7 steps away from left neighbour 60. That's way it it is
-        #       needed to pick the 7th entry in the fitted range to get the desired kV value for every curve. Than
-        #       a 'vertical' curve can be 'created'.
-
-        dist, lb, rb, step = self.find_neighbours(kV_val)
-        x_points = []
-        y_points = []
-
-
-        for d in self.map['d_curves']:
-            curve = self.map['d_curves'][d]
-            _c_kV = curve[:, 0]
-            _c_T = curve[:, 1]
-            _c_SNR = curve[:, 2]
-
-            il = np.where(_c_kV == lb)[0][0]
-            ir = np.where(_c_kV == rb)[0][0]
-
-            a, b, c = np.polyfit(_c_T, _c_SNR, deg=2)
-            x_curve_fit = np.linspace(_c_T[il], _c_T[ir], step + 1)
-            y_curve_fit = self.func_poly(x_curve_fit, a, b, c)
-
-            x_points.append(x_curve_fit[dist])
-            y_points.append(y_curve_fit[dist])
-
-        return np.vstack((x_points, y_points)).T
 
     def vertical_interpolation(self, points: np.array):
-        step = 10000
+        step = 100000
         _f = interpolate.interp1d(points[:, 0], points[:, 1], kind='linear')
         x_fit = np.linspace(points[:, 0][0], points[:, 0][-1], step)
         y_fit = _f(x_fit)
@@ -193,18 +149,24 @@ class Activator():
         curve = np.vstack((x_fit, y_fit)).T
         return curve, data
 
-    def curve_minT_intercept(self, curve):
-        # TODO: need a finally statement at the try/except block -> worst case is stopt the execution or pass 'standard values'?
-        # TODO: more robust idx calculation. Catching cases like 1 < len(idx). ->
 
+    def d_curve_T_intercept(self, curve):
+        # TODO: more robust idx calculation. Catching cases like 1 < len(idx). ->
         epsilons = [0.000001, 0.00001, 0.0001]
         for eps in epsilons:
-            idx = np.where((curve[:, 0] > (self.T_min - eps)) & (curve[:, 0] < (self.T_min + eps)))[0]
+            idx = np.where((curve[:, 0] > (self.T_min - eps)) & (curve[:, 0] < (self.T_min + eps)))
+            if len(idx[0]) > 1:
+                # if len(idx) > 1 than the central value where the condition holds, will be selected
+                mid_idx = int(abs(idx[0][-1] - idx[0][0]) / 2)
+                idx = idx[0][mid_idx]
+            else:
+                idx = np.where((curve[:, 0] > (self.T_min - eps)) & (curve[:, 0] < (self.T_min + eps)))[0][0]
             if idx.size:
                 self.intercept['x'] = self.T_min
-                self.intercept['y'] = curve[:, 1][idx[0]]
+                self.intercept['y'] = curve[:, 1][idx]
                 self.intercept_found = True
                 break
+
 
     def create_virtual_curves(self):
         #   1) read first and second curve
@@ -214,17 +176,23 @@ class Activator():
         #   4) go trough every data point in T_1 and T_2 (or SNR since len(T)=len(SNR)), interpolate 'linear' between
         #   5) linspace the 'distance' between the data points linspace(T_2 - T_1)
         #   6) doing this for every pair of curves and its data points, you will get a 'grid' of virtual data points
-        step = 0.1
+
         temp_curves = {}
+
+        # TODO: zuerst sortieren udn dann d, i in zip stuff machen.
+
         for d, i in zip(self.map['d_curves'], range(len(self.ds)-1)):
             X = []
             Y = []
-            c_num, sorted_ds = self.calc_curve_num(d, step)
 
-            d2 = sorted_ds[i + 1]
-            d1 = sorted_ds[i]
-            _c2 = self.map['d_curves'][d2]
-            _c1 = self.map['d_curves'][d1]
+            ds = list(self.map['d_curves'])
+            c_num = np.arange(ds[i], ds[i + 1], self.vir_curve_step)[1:]
+            c_num = c_num[::-1]
+
+            d2 = ds[i + 1]
+            d1 = ds[i]
+            _c2 = self.map['d_curves'][d2]['fit']
+            _c1 = self.map['d_curves'][d1]['fit']
             kV_2, T_2, SNR_2 = _c2[:, 0], _c2[:, 1], _c2[:, 2]
             kV_1, T_1, SNR_1 = _c1[:, 0], _c1[:, 1], _c1[:, 2]
 
@@ -240,85 +208,113 @@ class Activator():
             for k in range(c_num.size):
                 _T = []
                 _SNR = []
-                kV = kV_1
                 _d = round(c_num[k], 2)
                 for _j in range(len(T_1)):
                     _T.append(X[_j][k])
                     _SNR.append(Y[_j][k])
 
-                kV = np.asarray(kV)
                 _T = np.asarray(_T)
                 _SNR = np.asarray(_SNR)
-                merged_curve = self.Generator.merge_data(kV=kV, T=_T, SNR=_SNR)
-                temp_curves[_d] = merged_curve
+
+                a, b, c = np.polyfit(_T, _SNR, deg=2)
+                x = np.linspace(_T[0], _T[-1], 141)
+                y = self.func_poly(x, a, b, c)
+
+                fitted_curve = self.Generator.merge_data(kV=kV_1, T=x, SNR=y)
+                merged_curve = self.Generator.merge_data(kV=kV_1, T=_T, SNR=_SNR)
+                temp_curves[_d] = {}
+                temp_curves[_d]['fit'] = fitted_curve
+                temp_curves[_d]['data'] = merged_curve
 
         self.map['d_curves'].update(temp_curves)
         self.map['d_curves'] = dict(sorted(self.map['d_curves'].items()))
 
+        self.find_curve_max()
+
+
+    def find_curve_max(self):
+        for d in self.map['d_curves']:
+            _c = self.map['d_curves'][d]['fit']
+            idx = np.argmax(_c[:, 2])
+            self.map['d_curves'][d]['max_idx'] = idx
+
+
+    def make_monokV_curve(self, kV):
+        # suche in jeder Kurve den index der np.where(curve == kV) ist
+        X = []
+        Y = []
+        for d in self.map['d_curves']:
+            _c = self.map['d_curves'][d]['fit']
+            idx = np.where(_c[:, 0] == kV)[0][0]
+            x_val = _c[:, 1][idx]
+            y_val = _c[:, 2][idx]
+            X.append(x_val)
+            Y.append(y_val)
+        return np.vstack((X, Y)).T
+
 
     def find_neighbours(self, kV):
-        # find first element in map where arg. >= self.U0 ==> right border
+        # find first element in map where arg. >= self.U0, which is the right border of the searched interval
         # the nearest left entry is the left border between which the interpolation will take place
-        key = None
-        for key in self.map['d_curves']:
+        d = None
+        for d in self.map['d_curves']:
             break
-        _c_kV = self.map['d_curves'][key][:, 0].tolist()
+        if d is not None:
+            _c_kV = self.map['d_curves'][d]['data'][:, 0].tolist()
 
-        num = next(i[0] for i in enumerate(_c_kV) if i[1] >= kV)
-        left_nbr = _c_kV[num-1]
-        right_nbr = _c_kV[num]
-        dist = kV - left_nbr
+            num = next(i[0] for i in enumerate(_c_kV) if i[1] > kV)
+            left_nbr = _c_kV[num-1]
+            right_nbr = _c_kV[num]
+            dist = kV - left_nbr
 
-        return abs(int(dist)), int(left_nbr), int(right_nbr), (int(right_nbr) - int(left_nbr))
+            return abs(int(dist)), int(left_nbr), int(right_nbr), (int(right_nbr) - int(left_nbr))
+        else:
+            print('Could not estimate \'neighbours\'.')
+
 
     def get_opt_SNR_curve(self):
-        #   1) filter all relevant curves
-        #   2) find min abs between x value of curves and intercept
-        #   3) look into every watch_curve. If max SNR value is smaller than the actual intercept SNR value - > next curve
-        #      to find _d_max
-        #   4) 141 step size is because of the voltage difference 180kV-40kV. This
-        relevant_curves = self.filter_relevant_curves()
+        '''
+        delta:   abs between curves SNR value at T_min and the intercept['y'] value
+        '''
+        #   1) find min abs between x value of each curve and intercept['x'] get the index of the min value
+        #   2) compare the SNR value at found index of each curve -> find MIN( abs(SNR_val[idx] - intercept['y']) )
 
         old_delta = None
-        for d in relevant_curves:
-            _c = relevant_curves[d]
-            _x, _y = self.poly_fit(_c[:, 1], _c[:, 2], 10000)
+        for d in self.map['d_curves']:
+            _c = self.map['d_curves'][d]['fit']
 
             #   1) estimate the nearest interpolated x values to the intercept_x
-            idx = (np.abs(_x - self.T_min)).argmin()
+            idx = (np.abs(_c[:, 1] - self.T_min)).argmin()
 
-            delta = abs(_y[idx] - self.intercept['y'])
+            delta = abs(_c[:, 2][idx] - self.intercept['y'])
             if old_delta is None:
                 old_delta = delta
-            if delta < old_delta:
+            elif delta < old_delta:
                 old_delta = delta
                 self.map['d_opt'] = d
 
-        self.find_opt_curve()
+        self.pick_opt_curve()
 
 
     def filter_relevant_curves(self):
         watch_curves = {}
         for d in self.map['d_curves']:
-            _c_SNR = self.map['d_curves'][d][:, 2]
-            _SNR_max = max(_c_SNR)
+            _c_SNR = self.map['d_curves'][d]['fit'][:, 2]
             if not max(_c_SNR) < self.intercept['y']:
                 watch_curves[d] = self.map['d_curves'][d]
         return watch_curves
 
-    def find_opt_curve(self):
-        _c = self.map['d_curves'][self.map['d_opt']]
+
+    def pick_opt_curve(self):
+        _c = self.map['d_curves'][self.map['d_opt']]['fit']
         _c_kV = _c[:, 0]
         _c_T = _c[:, 1]
         _c_SNR = _c[:, 2]
-        steps = int(_c_kV[-1] - _c_kV[0]) + 1
-        kVs = np.linspace(_c_kV[0], _c_kV[-1], steps)
-        x, y = self.poly_fit(_c_T, _c_SNR, steps)
-        idx = np.argmax(y)
-        self.opt_curve['val'] = kVs[idx]
+        idx = np.argmax(_c_SNR)
 
-        self.opt_curve['fit'], self.opt_curve['data'] = self.create_monoKV_curve(kV_val=kVs[idx])
-
+        self.U_opt['val'] = _c_kV[idx]
+        self.U_opt['d'] = self.map['d_opt']
+        self.U_opt['fit'], self.U_opt['data'] = self.create_monoKV_curve(kV_val=_c_kV[idx])
 
 
     def search_nearest_curve(self):
@@ -326,14 +322,17 @@ class Activator():
         # 2) translate from T(proj) to d. There is a need in continuous d values
         pass
 
+
     def create_monoKV_curve(self, kV_val):
-        curve_points = self.interpolate_curve_piece(kV_val=kV_val)
-        curve_fit, data_points = self.vertical_interpolation(points=curve_points)
+        monokV_points = self.make_monokV_curve(kV=kV_val)
+        curve_fit, data_points = self.vertical_interpolation(points=monokV_points)
         return curve_fit, data_points[::-1]
+
 
     def calc_t_exp(self):
         t_exp = 1
         return t_exp
+
 
     def calc_look_up_table(self):
         #   1) create MAP in ROI (the map_object should carry real data points, and the fitted curves
@@ -342,24 +341,22 @@ class Activator():
         look_up = {'T': self.fast_CT_data[0], 'theta': self.fast_CT_data[1], 'd': {}, 'SNR': {}, 't_exp': {}}
         pass
 
-    def printer(self):
-        icpt_x = self.intercept['x']
-        icpt_y = self.intercept['y']
-        d_opt = self.map['d_opt']
-        kV_opt = self.map['opt_curve']['val']
 
+    def printer(self):
         if self.intercept_found == True:
-            print(f'intercept T_min and U0:\n'
-                  f'({round(icpt_x, 3)} / {round(icpt_y, 3)})')
+            icpt_x = self.intercept['x']
+            icpt_y = self.intercept['y']
+            d_opt = self.map['d_opt']
+            kV_opt = self.U_opt['val']
+            print(f'intercept T_min and U0:\n' f'({round(icpt_x, 3)} / {round(icpt_y, 3)})')
             print(' ')
-            print(f'interpolated thickness at intercept (d_opt):\n'
-                  f'{d_opt}')
+            print(f'interpolated thickness at intercept (d_opt):\n'  f'{d_opt}')
             print(' ')
-            print('optimal voltage for measurement:\n'
-                   + f' ==> kV_opt = {kV_opt} kV <==' + '\n')
+            print('optimal voltage for measurement:\n' + f' ==> kV_opt = {kV_opt} kV <==' + '\n')
         else:
             print('No intercept between U0 and T_min could be found. \n'
                   '-> You may reduce epsilon in find_intercept()')
+
 
     def poly_fit(self, var_x, var_y, steps):
         a, b, c = np.polyfit(var_x, var_y, deg=2)
@@ -367,27 +364,22 @@ class Activator():
         y = self.func_poly(x, a, b, c)
         return x, y
 
-    def create_supervision_plot(self):
-        for curve in self.curves:
-            a, b, c = np.polyfit(curve.T, curve.SNR, deg=2)
-            x = np.linspace(curve.T[0], curve.T[-1], 141)
-            y = self.func_poly(x, a, b, c)
-            plt.plot(x, y, alpha=0.8, label=f'{curve.d}')
-            plt.scatter(curve.T, curve.SNR)
-        plt.plot(self.U0_curve[:, 0], self.U0_curve[:, 1])
-        plt.axvline(x=self.T_min, c='green', linestyle='--', alpha=0.5, linewidth=1)
-        # plt.yscale('log')
+
+    def overwatch_plot(self):
+        fig = plt.figure()
+        ax = fig.add_subplot()
+
+        ds = [1.0, 1.1, 3.9, 4.0]
+        for d in self.map['d_curves']:
+            _c = self.map['d_curves'][d]['fit']
+            if d in ds:
+                ax.plot(_c[:, 1], _c[:, 2], label=f'{d} mm')
+            else:
+                pass
+
         plt.legend()
-        plt.savefig(os.path.join(f'{self.scanner.path_fin}', 'plots', 'supervisor.pdf'))
         plt.show()
 
-    def calc_curve_num(self, idx, step):
-        idx = int(idx)
-        sorted_ds = dict(sorted(self.map['d_curves'].items()))
-        ds = [*sorted_ds]
-        i = ds.index(idx)
-        c_num = np.arange(ds[i], ds[i + 1], step)[1:]
-        return c_num[::-1], ds
 
     @staticmethod
     def func_poly(x, a, b, c):

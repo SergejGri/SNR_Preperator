@@ -73,42 +73,63 @@ class Plotter:
         fig.savefig(os.path.join(path_result, 'plots', f'MAP_ROI-{roi_l}-{roi_r}.pdf'), dpi=600)
 
 
-    def create_v_plot(self, path_result: str, object, Y_style: str = 'log', full: bool = False):
+    def create_v_plot(self, path_result: str, object, Y_style: str = 'linear', full: bool = False):
         fig = plt.figure()
         ax = fig.add_subplot()
+        #ax2 = plt.twiny()
         roi_l = object['ROIs']['lb']
         roi_r = object['ROIs']['rb']
 
         sorted_curves = dict(sorted(object['d_curves'].items()))
         for d in sorted_curves:
-            _c = sorted_curves[d]
+            _c_fit = sorted_curves[d]['fit']
+            _c_data = sorted_curves[d]['data']
+            _c_max_idx = sorted_curves[d]['max_idx']
+
             is_int = self.check_ds_nature(d)
-            if is_int:
-                plt.plot(_c[:, 1], _c[:, 2], linestyle='-', alpha=1.0, label=f'{d} mm')
-                plt.scatter(_c[:, 1], _c[:, 2],  marker='o', alpha=1.0)
+
+            idx_100 = np.where(_c_fit[:, 0] == 100.0)
+            idx_40 = np.where(_c_fit[:, 0] == 40.0)
+            idx_180 = np.where(_c_fit[:, 0] == 180.0)
+            if is_int and d in object['ds']:
+                ax.scatter(_c_fit[:, 1][_c_max_idx], _c_fit[:, 2][_c_max_idx], marker='x', alpha=1.0, s=15, c='grey')
+                ax.scatter(_c_fit[:, 1], _c_fit[:, 2], marker='o', alpha=0.7)
+                #ax.plot(_c_fit[:, 1], _c_fit[:, 2], linestyle='-', linewidth='2', alpha=1.0, label=f'{d} mm')
+                ax.scatter(_c_data[:, 1], _c_data[:, 2], marker='o', alpha=1.0)
+
+                ax.scatter(_c_fit[:, 1][idx_100], _c_fit[:, 2][idx_100], c='red')
+                ax.scatter(_c_fit[:, 1][idx_40], _c_fit[:, 2][idx_40], c='red')
+                ax.scatter(_c_fit[:, 1][idx_180], _c_fit[:, 2][idx_180], c='red')
             else:
-                plt.plot(_c[:, 1], _c[:, 2], linestyle='-', alpha=0.2, c='grey')
-                #plt.scatter(_c[:, 1], _c[:, 2], marker='o', alpha=0.2, c='grey')
+                ax.scatter(_c_fit[:, 1][_c_max_idx], _c_fit[:, 2][_c_max_idx], marker='x', alpha=0.8, s=10, c='grey')
+                ax.plot(_c_data[:, 1], _c_data[:, 2], linestyle='-', linewidth=1, alpha=0.15, c='grey')
 
-        if full:
-            _c_U0 = object['U0_curve']['data']
-            _c_opt = object['opt_curve']['data']
-            plt.plot(_c_U0[:, 0], _c_U0[:, 1])
-            plt.plot(_c_opt[:, 0], _c_opt[:, 1])
-            plt.axvline(x=object['T_min'], c='green', linestyle='--', alpha=0.5, linewidth=1)
-            tmin = object['T_min']
-            ax.text(0.0, 0.6, f'T min: {tmin}')
 
-        plt.legend()
-        plt.title(f'SNR MAP @ {roi_l}-{roi_r} $\mu m$')
-        plt.yscale(Y_style)
-        plt.xlabel('Transmission a.u.')
-        plt.ylabel('SNR/s')
+        if full and object['intercept_found']:
+            tt = ax.axvline(x=object['T_min'], c='green', linestyle='--', alpha=0.5, linewidth=1)
+
+
+        _c_U0 = object['U0_curve']['fit']
+        _c_opt = object['opt_curve']['fit']
+        ax.plot(_c_U0[:, 0], _c_U0[:, 1], linewidth=1.5, label='$U_{0}$ curve')
+        ax.plot(_c_opt[:, 0], _c_opt[:, 1],linewidth=1.5, label='$U_{opt}$ curve', c='red')
+
+        ax.legend(loc="upper left")
+        ax.set_title(f'SNR MAP @ {roi_l}-{roi_r} $\mu m$')
+        ax.set_yscale(Y_style)
+        ax.set_xlabel('Transmission a.u.')
+        ax.set_ylabel('SNR/s')
         sv_path = os.path.join(path_result, 'plots')
         if not os.path.isdir(sv_path):
             os.makedirs(sv_path)
         plt.show()
         fig.savefig(os.path.join(path_result, 'plots', f'MAP_ROI-{roi_l}-{roi_r}.pdf'), dpi=600)
+
+    def fit_me_for_plot(self, _c):
+        a, b, c = np.polyfit(_c[:, 1], _c[:, 2], deg=2)
+        x = np.linspace(_c[:, 1][0], _c[:, 1][-1], 141)
+        y = self.func_poly(x, a, b, c)
+        return x, y
 
 
     def create_evolution_plot(self,path_snr:str, path_T:str, path_result: str, object: object, d: int, spatial_list: list = None, Y_style: str = 'log'):

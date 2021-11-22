@@ -3,6 +3,7 @@ import time
 import numpy as np
 import os
 import matplotlib.pyplot as plt
+import helpers as h
 from Plots import Plotter
 
 
@@ -44,10 +45,17 @@ class SNRMapGenerator:
 
         for i in range(len(self.ds)):
             self.str_d = f'{self.ds[i]}_mm'
-            #self.float_d = float(self.ds[i])
+            self.curves[float(f'{self.ds[i]}')] = {}
+
             kV, T = self.get_T_data()
             SNR = self.get_SNR_data(self.ROI['lb'], self.ROI['rb'])
-            self.curves[float(f'{self.ds[i]}')] = self.merge_data(kV=kV, T=T, SNR=SNR)
+
+            kV_fit = np.linspace(kV[0], kV[-1], 141)
+            x, y = h.poly_fit(T, SNR, 141)
+
+            self.curves[float(f'{self.ds[i]}')]['data'] = self.merge_data(kV=kV, T=T, SNR=SNR)
+            self.curves[float(f'{self.ds[i]}')]['fit'] = self.merge_data(kV=kV_fit, T=x, SNR=y)
+
         self.MAP_object['d_curves'] = self.curves
         self.write_curve_files(self.curves)
 
@@ -99,7 +107,6 @@ class SNRMapGenerator:
     def merge_data(self, kV, T, SNR):
         d_curve = np.vstack((kV, T, SNR)).T
         d_curve.astype(float)
-        #self.curves[f'{self.str_d}'] = d_curve
         return d_curve
 
     def interpolate_data(self, data, idx: tuple=None):
@@ -134,6 +141,9 @@ class SNRMapGenerator:
             data = np.concatenate((xvals, inter_SNR, inter_SPS, inter_NPS), axis=1)
             return data
 
+    def piecewise_interpolatio(self):
+        pass
+
 
     def reset(self):
         self.str_d = {}
@@ -145,7 +155,8 @@ class SNRMapGenerator:
             c = int(c)
             if not os.path.isdir(self.path_fin):
                 os.makedirs(self.path_fin)
-            np.savetxt(os.path.join(self.path_fin, f'{c}mm.csv'), self.curves[c], delimiter=',')
+            np.savetxt(os.path.join(self.path_fin, f'{c}mm_fit.csv'), self.curves[c]['fit'], delimiter=',')
+            np.savetxt(os.path.join(self.path_fin, f'{c}mm_data_points.csv'), self.curves[c]['data'], delimiter=',')
 
 
     def pick_value(self):
@@ -170,6 +181,16 @@ class SNRMapGenerator:
             rb = port[1]
         self.ROI['lb'] = lb
         self.ROI['rb'] = rb
+
+    def poly_fit(self, var_x, var_y, steps):
+        a, b, c = np.polyfit(var_x, var_y, deg=2)
+        x = np.linspace(var_x[0], var_x[-1], steps)
+        y = self.func_poly(x, a, b, c)
+        return x, y
+
+    @staticmethod
+    def func_poly(x, a, b, c):
+        return a * x ** 2 + b * x + c
 
     @staticmethod
     def get_properties(file):
