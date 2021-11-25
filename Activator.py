@@ -83,6 +83,7 @@ class Scanner:
                 loc_ds.append(d)
                 loc_fs.append(os.path.join(self.p_T_files, file))
         self.files['T'] = loc_fs
+        loc_ds = sorted(loc_ds, key=lambda x: int(x))
         self.files['ds'] = loc_ds
 
 

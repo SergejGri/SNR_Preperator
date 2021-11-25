@@ -50,17 +50,19 @@ class SNRMapGenerator:
             # 1)    look into base_path and find the used voltages to get the steps between kV_{i+1} and kV_{i}
             # 2)    since only whole num voltages are allowed, divide the range between kV_{i+1} and kV_{i} into one
             #       step ranges: Range from 40kV - 180kV -> 141 steps (including the very last step 140+1)
-
+            # 3)    create function which calls the h.give_steps for every pair of kv and slice it to a curve
+            int_d = self.ds[i]
             self.str_d = f'{self.ds[i]}_mm'
-            self.curves[float(f'{self.ds[i]}')] = {}
+            self.curves[float(f'{int_d}')] = {}
+
 
             kV, T = self.get_T_data()
-            SNR = self.get_SNR_data(self.ROI['lb'], self.ROI['rb'])
+            SNR = self.get_SNR_data(int_d, self.ROI['lb'], self.ROI['rb'])
 
-            kV_fit = np.linspace(kV[0], kV[-1], 141)
-            x, y = h.poly_fit(T, SNR, 141)
 
-            self.curves[float(f'{self.ds[i]}')]['data'] = self.merge_data(kV=kV, T=T, SNR=SNR)
+            self.curves[float(f'{int_d}')]['data'] = self.merge_data(kV=kV, T=T, SNR=SNR)
+
+            kVs = self.create_kV_curve(int_d)
             self.curves[float(f'{self.ds[i]}')]['fit'] = self.merge_data(kV=kV_fit, T=x, SNR=y)
 
         self.MAP_object['d_curves'] = self.curves
@@ -79,12 +81,13 @@ class SNRMapGenerator:
 
         return data_T[:, 0].T, data_T[:, 1].T
 
-    def get_SNR_data(self, lb, rb):
+    def get_SNR_data(self, d, lb, rb):
         kvs = []
         snr_means = []
 
         for file in self.scanner.files['SNR']:
-            if f'{self.str_d}' in file:
+            _d = h.extract_d(file)
+            if _d == d:
                 kV, mean_SNR = self.calc_avg_SNR(file, lb, rb)
                 kvs.append(kV)
                 snr_means.append(mean_SNR)
@@ -99,8 +102,8 @@ class SNRMapGenerator:
         # read the file which is produced by the script SNR_Spectra.py
         # interpolate between data points, because for initial MAP there are to little data points between the first and
         # second entry. The data points are not equally distributed.
+        kv = h.extract_kv(file)
 
-        int_kV = self.get_properties(file)
         data = np.genfromtxt(file, skip_header=3)
         data = self.interpolate_data(data)
 
@@ -109,7 +112,7 @@ class SNRMapGenerator:
         data = np.c_[data, data_x]
         data = data[np.logical_and(data[:, 4] >= lb, data[:, 4] <= rb)]
         mean_SNR = data[:, 1].mean()
-        return int_kV, mean_SNR
+        return kv, mean_SNR
 
     def merge_data(self, kV, T, SNR):
         d_curve = np.vstack((kV, T, SNR)).T
@@ -155,6 +158,7 @@ class SNRMapGenerator:
                 for row in f:
                     kvs.append(row.split(';')[0])
             break
+        kvs = sorted(kvs, key=lambda x: int(x))
         return kvs
 
 
@@ -212,15 +216,34 @@ class SNRMapGenerator:
 
     @staticmethod
     def get_properties(file):
-        int_kV = None
         filename = os.path.basename(file)
         try:
-            str_kV = filename.split('kV')[0]
-            int_kV = int(str_kV.split('_')[1])
+            kv = h.extract_kv(filename)
         except ValueError:
             print('check naming convention of your passed files.')
-            pass
-        return int_kV
+        return kv
+
+    def create_kV_curve(self, d):
+        for i in range(len(self.kVs)-1):
+            _p0 = []
+            _p1 = []
+            kv0 = int(self.kVs[i])
+            kv1 = int(self.kVs[i+1])
+            n = abs(int(kv1) - int(kv0))
+            # now you need to get the T values with the index of _p0 and _p1
+            _curve = self.curves[float(f'{self.ds[i]}')]['data']
+            row0 = _curve[_curve[:, 0] == kv0]
+            row1 = _curve[_curve[:, 0] == kv1]
+
+            _p0 = [row0[:, 1][0], row0[:, 2][0]]
+            _p1 = [row1[:, 1][0], row1[:, 2][0]]
+
+            data_points = h.give_steps(p0=_p0, p1=_p1, pillows=n)
+
+            plt.plot(_curve[:, 1], _curve[:, 2])
+            plt.scatter(data_points[:, 0], data_points[:, 1])
+            plt.show()
+            print('test')
 
 
 # TODO: implement a robust curve- / thickness-chose-mechanism
