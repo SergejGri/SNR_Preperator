@@ -4,8 +4,9 @@ import time
 import numpy as np
 import os
 import matplotlib.pyplot as plt
+from scipy.interpolate import interp1d
 import helpers as h
-from Plots import Plotter
+
 
 
 class SNRMapGenerator:
@@ -45,25 +46,24 @@ class SNRMapGenerator:
         self.check_range(spatial_range)
         self.MAP_object['ROIs'] = self.ROI
 
-
         for i in range(len(self.ds)):
-            # 1)    look into base_path and find the used voltages to get the steps between kV_{i+1} and kV_{i}
-            # 2)    since only whole num voltages are allowed, divide the range between kV_{i+1} and kV_{i} into one
-            #       step ranges: Range from 40kV - 180kV -> 141 steps (including the very last step 140+1)
-            # 3)    create function which calls the h.give_steps for every pair of kv and slice it to a curve
             int_d = self.ds[i]
             self.str_d = f'{self.ds[i]}_mm'
             self.curves[float(f'{int_d}')] = {}
 
-
             kV, T = self.get_T_data()
             SNR = self.get_SNR_data(int_d, self.ROI['lb'], self.ROI['rb'])
 
-
             self.curves[float(f'{int_d}')]['data'] = self.merge_data(kV=kV, T=T, SNR=SNR)
 
-            kVs = self.create_kV_curve(int_d)
-            self.curves[float(f'{self.ds[i]}')]['fit'] = self.merge_data(kV=kV_fit, T=x, SNR=y)
+            kv_grid = self.create_kv_grid(int_d)
+            self.curves[float(f'{self.ds[i]}')]['kv_grid'] = self.merge_data(kV=kv_grid[:, 0], T=kv_grid[:, 1], SNR=kv_grid[:, 2])
+
+            x, y = h.poly_fit(T, SNR, 141)
+            #self.apply_kvgrid_to_fit(x, y)
+            # TODO: pass the poly fit func to self.create_kv_grid
+            #
+            #self.curves[float(f'{self.ds[i]}')]['fit'] = self.merge_data(kV=shift_kvs, T=x, SNR=y)
 
         self.MAP_object['d_curves'] = self.curves
         self.write_curve_files(self.curves)
@@ -151,7 +151,7 @@ class SNRMapGenerator:
             data = np.concatenate((xvals, inter_SNR, inter_SPS, inter_NPS), axis=1)
             return data
 
-    def find_kvs(self):
+    def find_kvs(self, filter=None):
         kvs = []
         for tfile in os.listdir(self.path_T):
             with open(os.path.join(self.path_T, tfile), mode='r') as f:
@@ -159,12 +159,51 @@ class SNRMapGenerator:
                     kvs.append(row.split(';')[0])
             break
         kvs = sorted(kvs, key=lambda x: int(x))
+        if filter is not None:
+            for fval in filter:
+                if fval in filter:
+                    kvs.remove(fval)
         return kvs
 
+    def create_kv_grid(self, d):
+        _c = self.curves[float(f'{d}')]['data']
+        kv_grid = np.empty(shape=3)
 
-    def piecewise_interpolatio(self):
+        for i in range(len(self.kVs) - 1):
+            _p0 = []
+            _p1 = []
+
+            # TODO: change the selection of kvs depending on the curve
+            kv0 = int(self.kVs[i])
+            kv1 = int(self.kVs[i + 1])
+            n = abs(int(kv1) - int(kv0) + 1)
+
+            row0 = _c[_c[:, 0] == kv0]
+            row1 = _c[_c[:, 0] == kv1]
+
+            _p0 = [row0[:, 1][0], row0[:, 2][0]]
+            _p1 = [row1[:, 1][0], row1[:, 2][0]]
+
+            virtual_kv_points = h.give_steps(p0=_p0, p1=_p1, pillars=n)
+
+            kvs_vals = np.linspace(kv0, kv1, n)[np.newaxis].T
+            kvs_vals = np.hstack((kvs_vals, virtual_kv_points))
+            kv_grid = np.vstack((kv_grid, kvs_vals))
+
+        # fine tune new curve
+        kv_grid = kv_grid[1:]
+        del_rows = []
+        for j in range(len(kv_grid[:, 0]) - 1):
+            if kv_grid[j, 0] == kv_grid[j + 1, 0]:
+                del_rows.append(j)
+        del_rows = np.asarray(del_rows)
+        kv_grid = np.delete(kv_grid, [del_rows], axis=0)
+        return kv_grid
+
+
+
+    def apply_kvgrid_to_fit(self, x, y):
         pass
-
 
 
     def reset(self):
@@ -177,7 +216,7 @@ class SNRMapGenerator:
             c = int(c)
             if not os.path.isdir(self.path_fin):
                 os.makedirs(self.path_fin)
-            np.savetxt(os.path.join(self.path_fin, f'{c}mm_fit.csv'), self.curves[c]['fit'], delimiter=',')
+            np.savetxt(os.path.join(self.path_fin, f'{c}mm_kv_grid.csv'), self.curves[c]['kv_grid'], delimiter=',')
             np.savetxt(os.path.join(self.path_fin, f'{c}mm_data_points.csv'), self.curves[c]['data'], delimiter=',')
 
 
@@ -222,43 +261,6 @@ class SNRMapGenerator:
         except ValueError:
             print('check naming convention of your passed files.')
         return kv
-
-
-    def create_kV_curve(self, d):
-        _c = self.curves[float(f'{d}')]['data']
-        kvs = np.empty(shape=3)
-
-        for i in range(len(self.kVs)-1):
-            _p0 = []
-            _p1 = []
-
-            # TODO: change the selection of kvs depending on the curve
-            kv0 = int(self.kVs[i])
-            kv1 = int(self.kVs[i+1])
-            n = abs(int(kv1) - int(kv0) + 1)
-
-            row0 = _c[_c[:, 0] == kv0]
-            row1 = _c[_c[:, 0] == kv1]
-
-            _p0 = [row0[:, 1][0], row0[:, 2][0]]
-            _p1 = [row1[:, 1][0], row1[:, 2][0]]
-
-            virtual_kv_points = h.give_steps(p0=_p0, p1=_p1, pillars=n)
-
-            kvs_vals = np.linspace(kv0, kv1, n)[np.newaxis].T
-            kvs_vals = np.hstack((kvs_vals, virtual_kv_points))
-            kvs = np.vstack((kvs, kvs_vals))
-
-        # fine tune new curve
-        kvs = kvs[1:]
-        del_rows = []
-        for j in range(len(kvs[:, 0])-1):
-            if kvs[j, 0] == kvs[j+1, 0]:
-                del_rows.append(j)
-        del_rows = np.asarray(del_rows)
-        kvs = np.delete(kvs, [del_rows], axis=0)
-        return kvs
-
 
 
 

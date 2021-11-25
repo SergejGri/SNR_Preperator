@@ -61,7 +61,7 @@ class SNRPrepperator:
                   f'and slice_r to get plausible results.')
         self.header = header
         self.crop_area = crop_area
-        self.view = slice(None, None), *self.crop_area
+        self.view = (0, 0), *self.crop_area
 
         self.img_params = self.get_img_params()
 
@@ -163,7 +163,7 @@ class SNRPrepperator:
         dict_sdir = {}
         for dirr in os.listdir(self.path_base):
             if os.path.isdir(os.path.join(self.path_base, dirr)):
-                kv = int(dirr.split('kV')[0])
+                kv = h.extract_kv(dirr)
                 if os.path.isdir(os.path.join(self.path_base, dirr)) and 'kV' in dirr:
                     subdirs = self.get_subdirs(dir=dirr)
                     t_exp = get_texp(path=self.path_base, kv=kv)
@@ -188,13 +188,8 @@ class SNRPrepperator:
         return subdirs
 
 
-
     def get_img_params(self):
-        params = {'mode': 'raw',
-                  'shape': self.img_shape,
-                  'header': self.header,
-                  'dtype': '<u2',
-                  'crops': ((0, 0), (500, 1500), (600, 1522))}
+        params = dict(mode='raw', shape=self.img_shape, header=self.header, dtype='<u2', crops=self.view)
         return params
 
     def write_T_data(self, path_T, d, T, voltage):

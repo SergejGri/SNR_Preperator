@@ -10,11 +10,7 @@ def prep_data(base_path):
     M = 19.1262
     watt = 6
 
-    # crop_1
-    #crop = slice(500, 1500), slice(600, 1522)
-
-    #crop_2
-    crop = slice(500, 1500), slice(900, 1147)
+    crop = (500, 1500), (900, 1147)
 
     _str = base_path.split('sgrischagin\\')[1]
     path_to_result = os.path.join(r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR', _str, '20211122_without_detectorslices')
@@ -74,7 +70,8 @@ def main():
     T_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-11-23-sergej_Al-StepWedge_6W\20211122_without_detectorslices\2021-11-24_T'
     result = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-11-23-sergej_Al-StepWedge_6W\20211122_without_detectorslices\EVALUATION'
 
-    acti = Activator(snr_files=snr_data, T_files=T_data, U0=100, snr_user=1.0, ssize=(150, 250))
+    # TODO: implement excluding kvs as kv_ex
+    acti = Activator(snr_files=snr_data, T_files=T_data, U0=100, snr_user=1.0, ssize=(50, 100), kv_ex=None)
     acti()
 
 

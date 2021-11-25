@@ -7,6 +7,45 @@ def give_steps(p0, p1, pillars):
     return np.vstack([np.linspace(p0[0], p1[0], pillars), np.linspace(p0[1], p1[1], pillars)]).T
 
 
+def create_kv_grid(data_curve):
+    _c = data_curve
+    kv_grid = np.empty(shape=3)
+
+    for i in range(len(_c[:, 0])-1):
+        _p0 = []
+        _p1 = []
+
+        # TODO: change the selection of kvs depending on the curve
+        kv0 = int(_c[i, 0])
+        kv1 = int(_c[i+1, 0])
+        n = abs(int(kv1) - int(kv0) + 1)
+
+        row0 = _c[_c[:, 0] == kv0]
+        row1 = _c[_c[:, 0] == kv1]
+
+        _p0 = [row0[:, 1][0], row0[:, 2][0]]
+        _p1 = [row1[:, 1][0], row1[:, 2][0]]
+
+        virtual_kv_points = give_steps(p0=_p0, p1=_p1, pillars=n)
+
+        kvs_vals = np.linspace(kv0, kv1, n)[np.newaxis].T
+        kvs_vals = np.hstack((kvs_vals, virtual_kv_points))
+        kv_grid = np.vstack((kv_grid, kvs_vals))
+
+    # fine tune new curve
+    kv_grid = kv_grid[1:]
+    del_rows = []
+    for j in range(len(kv_grid[:, 0])-1):
+        if kv_grid[j, 0] == kv_grid[j+1, 0]:
+            del_rows.append(j)
+    del_rows = np.asarray(del_rows)
+    kv_grid = np.delete(kv_grid, [del_rows], axis=0)
+    return kv_grid
+
+
+
+
+
 def extract_d(dfile):
     d_str = re.findall("([0-9]+)mm", dfile)
     if len(d_str) < 1:

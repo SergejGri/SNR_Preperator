@@ -110,10 +110,12 @@ class Scanner:
 
 
 class Activator():
-    def __init__(self, snr_files: str, T_files: str, U0: int, snr_user: float, ds: list = None, ssize=None,
-                 vir_curve_step: float = None, create_plot: bool = False):
+    def __init__(self, snr_files: str, T_files: str, U0: int, snr_user: float, kv_ex: list = None, ds: list = None,
+                 ssize=None, vir_curve_step: float = None, create_plot: bool = False):
         self.fast_CT_data = None
         self.T_min = None
+
+        self.kv_ex = kv_ex
 
         if ssize:
             self.ssize = ssize
@@ -156,7 +158,7 @@ class Activator():
         self.opt_data_points = None
         self.map = None
         self.U_0 = {'val': self.U0, 'fit': {}, 'data': {}}
-        self.Generator = SNRMapGenerator(scanner=self.scanner, d=self.ds)
+        self.Generator = SNRMapGenerator(scanner=self.scanner, d=self.ds, kV_filter=kv_ex)
 
     def __call__(self, create_plot: bool = True, *args, **kwargs):
 
@@ -277,28 +279,17 @@ class Activator():
                     _T.append(X[_j][k])
                     _SNR.append(Y[_j][k])
 
+                # full scatter curve _T and _SNR
                 _T = np.asarray(_T)
                 _SNR = np.asarray(_SNR)
 
-                a, b, c = np.polyfit(_T, _SNR, deg=2)
-                #x = np.linspace(_T[0], _T[-1], 141)
-                x = np.arange(_T[0], _T[-1], 1/len(_T))
-                #x = np.linspace(_T[0], _T[-1], 100000)
-                y = self.func_poly(x, a, b, c)
-
-                plt.scatter(x, y, label=f'{_d} mm')
-                #plt.plot(_T, _SNR, label=f'{_d} mm')
-                plt.legend()
-                plt.show()
-
-                x, y = self.prep_curve(x=x, y=y)
-
-
-                fitted_curve = self.Generator.merge_data(kV=kV_1, T=x, SNR=y)
-                merged_curve = self.Generator.merge_data(kV=kV_1, T=_T, SNR=_SNR)
+                merged_data_curve = self.Generator.merge_data(kV=kV_1, T=_T, SNR=_SNR)
                 temp_curves[_d] = {}
-                temp_curves[_d]['fit'] = fitted_curve
-                temp_curves[_d]['data'] = merged_curve
+                temp_curves[_d]['data'] = merged_data_curve
+
+                kv_grid = h.create_kv_grid(data_curve=merged_data_curve)
+                merged_grid_curve = self.Generator.merge_data(kV=kv_grid[:, 0], T=kv_grid[:, 1], SNR=kv_grid[:, 2])
+                temp_curves[_d]['kv_grid'] = merged_grid_curve
 
         self.map['d_curves'].update(temp_curves)
         self.map['d_curves'] = dict(sorted(self.map['d_curves'].items()))
@@ -319,10 +310,9 @@ class Activator():
         return xn, yn
 
 
-
     def find_curve_max(self):
         for d in self.map['d_curves']:
-            _c = self.map['d_curves'][d]['fit']
+            _c = self.map['d_curves'][d]['kv_grid']
             idx = np.argmax(_c[:, 2])
             self.map['d_curves'][d]['max_idx'] = idx
 
@@ -332,7 +322,7 @@ class Activator():
         X = []
         Y = []
         for d in self.map['d_curves']:
-            _c = self.map['d_curves'][d]['fit']
+            _c = self.map['d_curves'][d]['kv_grid']
             idx = np.where(_c[:, 0] == kV)[0][0]
             x_val = _c[:, 1][idx]
             y_val = _c[:, 2][idx]
@@ -369,7 +359,7 @@ class Activator():
 
         old_delta = None
         for d in self.map['d_curves']:
-            _c = self.map['d_curves'][d]['fit']
+            _c = self.map['d_curves'][d]['kv_grid']
 
             #   1) estimate the nearest interpolated x values to the intercept_x
             idx = (np.abs(_c[:, 1] - self.T_min)).argmin()
@@ -394,7 +384,7 @@ class Activator():
 
 
     def pick_opt_curve(self):
-        _c = self.map['d_curves'][self.map['d_opt']]['fit']
+        _c = self.map['d_curves'][self.map['d_opt']]['kv_grid']
         _c_kV = _c[:, 0]
         _c_T = _c[:, 1]
         _c_SNR = _c[:, 2]
@@ -431,7 +421,7 @@ class Activator():
 
 
     def printer(self):
-        if self.intercept_found == True:
+        if self.intercept_found:
             icpt_x = self.intercept['x']
             icpt_y = self.intercept['y']
             d_opt = self.map['d_opt']

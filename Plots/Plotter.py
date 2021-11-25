@@ -82,7 +82,7 @@ class Plotter:
 
         sorted_curves = dict(sorted(object['d_curves'].items()))
         for d in sorted_curves:
-            _c_fit = sorted_curves[d]['fit']
+            _c_kv_grid = sorted_curves[d]['kv_grid']
             _c_data = sorted_curves[d]['data']
             _c_max_idx = sorted_curves[d]['max_idx']
 
@@ -90,13 +90,13 @@ class Plotter:
 
 
             if is_int and d in object['ds']:
-                ax.scatter(_c_fit[:, 1][_c_max_idx], _c_fit[:, 2][_c_max_idx], marker='x', alpha=1.0, s=15, c='grey')
-                ax.scatter(_c_fit[:, 1], _c_fit[:, 2], marker='o', alpha=0.7)
-                #ax.plot(_c_fit[:, 1], _c_fit[:, 2], linestyle='-', linewidth='2', alpha=1.0, label=f'{d} mm')
+                ax.scatter(_c_kv_grid[:, 1][_c_max_idx], _c_kv_grid[:, 2][_c_max_idx], marker='x', alpha=1.0, s=15, c='grey')
+                ax.scatter(_c_kv_grid[:, 1], _c_kv_grid[:, 2], marker='o', alpha=0.7)
+                #ax.plot(_c_kv_grid[:, 1], _c_kv_grid[:, 2], linestyle='-', linewidth='2', alpha=1.0, label=f'{d} mm')
                 ax.scatter(_c_data[:, 1], _c_data[:, 2], marker='o', alpha=1.0)
 
             else:
-                ax.scatter(_c_fit[:, 1][_c_max_idx], _c_fit[:, 2][_c_max_idx], marker='x', alpha=0.8, s=10, c='grey')
+                ax.scatter(_c_kv_grid[:, 1][_c_max_idx], _c_kv_grid[:, 2][_c_max_idx], marker='x', alpha=0.8, s=10, c='grey')
                 ax.plot(_c_data[:, 1], _c_data[:, 2], linestyle='-', linewidth=1, alpha=0.15, c='grey')
 
 
