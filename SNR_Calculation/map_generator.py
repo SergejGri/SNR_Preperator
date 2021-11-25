@@ -1,3 +1,4 @@
+import csv
 import gc
 import time
 import numpy as np
@@ -8,7 +9,7 @@ from Plots import Plotter
 
 
 class SNRMapGenerator:
-    def __init__(self, scnr: object, d: list, kV_filter: list = None):
+    def __init__(self, scanner: object, d: list, kV_filter: list = None):
         """
         :param path_snr:
         :param path_T:
@@ -16,12 +17,13 @@ class SNRMapGenerator:
         :param d:
         :param kV_filter:
         """
-        self.scanner = scnr
+        self.scanner = scanner
         self.path_snr = self.scanner.p_SNR_files
         self.path_T = self.scanner.p_T_files
         self.path_fin = os.path.join(os.path.dirname(self.path_T), 'MAP')
 
-        self.ds = d
+        self.ds = self.scanner.files['ds']
+        self.kVs = self.find_kvs()
         self.str_d = None
         self.T_min = None
         self.curves = {}
@@ -40,20 +42,27 @@ class SNRMapGenerator:
 
 
     def __call__(self, spatial_range, *args, **kwargs):
-        self.check_input(spatial_range)
+        self.check_range(spatial_range)
         self.MAP_object['ROIs'] = self.ROI
 
+
         for i in range(len(self.ds)):
+            # 1)    look into base_path and find the used voltages to get the steps between kV_{i+1} and kV_{i}
+            # 2)    since only whole num voltages are allowed, divide the range between kV_{i+1} and kV_{i} into one
+            #       step ranges: Range from 40kV - 180kV -> 141 steps (including the very last step 140+1)
+            # 3)    create function which calls the h.give_steps for every pair of kv and slice it to a curve
+            int_d = self.ds[i]
             self.str_d = f'{self.ds[i]}_mm'
-            self.curves[float(f'{self.ds[i]}')] = {}
+            self.curves[float(f'{int_d}')] = {}
+
 
             kV, T = self.get_T_data()
-            SNR = self.get_SNR_data(self.ROI['lb'], self.ROI['rb'])
+            SNR = self.get_SNR_data(int_d, self.ROI['lb'], self.ROI['rb'])
 
-            kV_fit = np.linspace(kV[0], kV[-1], 141)
-            x, y = h.poly_fit(T, SNR, 141)
 
-            self.curves[float(f'{self.ds[i]}')]['data'] = self.merge_data(kV=kV, T=T, SNR=SNR)
+            self.curves[float(f'{int_d}')]['data'] = self.merge_data(kV=kV, T=T, SNR=SNR)
+
+            kVs = self.create_kV_curve(int_d)
             self.curves[float(f'{self.ds[i]}')]['fit'] = self.merge_data(kV=kV_fit, T=x, SNR=y)
 
         self.MAP_object['d_curves'] = self.curves
@@ -72,12 +81,13 @@ class SNRMapGenerator:
 
         return data_T[:, 0].T, data_T[:, 1].T
 
-    def get_SNR_data(self, lb, rb):
+    def get_SNR_data(self, d, lb, rb):
         kvs = []
         snr_means = []
 
         for file in self.scanner.files['SNR']:
-            if f'{self.str_d}' in file:
+            _d = h.extract_d(file)
+            if _d == d:
                 kV, mean_SNR = self.calc_avg_SNR(file, lb, rb)
                 kvs.append(kV)
                 snr_means.append(mean_SNR)
@@ -92,8 +102,8 @@ class SNRMapGenerator:
         # read the file which is produced by the script SNR_Spectra.py
         # interpolate between data points, because for initial MAP there are to little data points between the first and
         # second entry. The data points are not equally distributed.
+        kv = h.extract_kv(file)
 
-        int_kV = self.get_properties(file)
         data = np.genfromtxt(file, skip_header=3)
         data = self.interpolate_data(data)
 
@@ -102,7 +112,7 @@ class SNRMapGenerator:
         data = np.c_[data, data_x]
         data = data[np.logical_and(data[:, 4] >= lb, data[:, 4] <= rb)]
         mean_SNR = data[:, 1].mean()
-        return int_kV, mean_SNR
+        return kv, mean_SNR
 
     def merge_data(self, kV, T, SNR):
         d_curve = np.vstack((kV, T, SNR)).T
@@ -141,8 +151,20 @@ class SNRMapGenerator:
             data = np.concatenate((xvals, inter_SNR, inter_SPS, inter_NPS), axis=1)
             return data
 
+    def find_kvs(self):
+        kvs = []
+        for tfile in os.listdir(self.path_T):
+            with open(os.path.join(self.path_T, tfile), mode='r') as f:
+                for row in f:
+                    kvs.append(row.split(';')[0])
+            break
+        kvs = sorted(kvs, key=lambda x: int(x))
+        return kvs
+
+
     def piecewise_interpolatio(self):
         pass
+
 
 
     def reset(self):
@@ -171,14 +193,14 @@ class SNRMapGenerator:
         return val
 
 
-    def check_input(self, port):
-        if isinstance(port, int):
-            port = (port,)[0]
-            lb = port - 0.1 * port
-            rb = port + 0.1 * port
+    def check_range(self, rng):
+        if isinstance(rng, int):
+            rng = (rng,)[0]
+            lb = rng - 0.1 * rng
+            rb = rng + 0.1 * rng
         else:
-            lb = port[0]
-            rb = port[1]
+            lb = rng[0]
+            rb = rng[1]
         self.ROI['lb'] = lb
         self.ROI['rb'] = rb
 
@@ -194,15 +216,50 @@ class SNRMapGenerator:
 
     @staticmethod
     def get_properties(file):
-        int_kV = None
         filename = os.path.basename(file)
         try:
-            str_kV = filename.split('kV')[0]
-            int_kV = int(str_kV.split('_')[1])
+            kv = h.extract_kv(filename)
         except ValueError:
             print('check naming convention of your passed files.')
-            pass
-        return int_kV
+        return kv
+
+
+    def create_kV_curve(self, d):
+        _c = self.curves[float(f'{d}')]['data']
+        kvs = np.empty(shape=3)
+
+        for i in range(len(self.kVs)-1):
+            _p0 = []
+            _p1 = []
+
+            # TODO: change the selection of kvs depending on the curve
+            kv0 = int(self.kVs[i])
+            kv1 = int(self.kVs[i+1])
+            n = abs(int(kv1) - int(kv0) + 1)
+
+            row0 = _c[_c[:, 0] == kv0]
+            row1 = _c[_c[:, 0] == kv1]
+
+            _p0 = [row0[:, 1][0], row0[:, 2][0]]
+            _p1 = [row1[:, 1][0], row1[:, 2][0]]
+
+            virtual_kv_points = h.give_steps(p0=_p0, p1=_p1, pillars=n)
+
+            kvs_vals = np.linspace(kv0, kv1, n)[np.newaxis].T
+            kvs_vals = np.hstack((kvs_vals, virtual_kv_points))
+            kvs = np.vstack((kvs, kvs_vals))
+
+        # fine tune new curve
+        kvs = kvs[1:]
+        del_rows = []
+        for j in range(len(kvs[:, 0])-1):
+            if kvs[j, 0] == kvs[j+1, 0]:
+                del_rows.append(j)
+        del_rows = np.asarray(del_rows)
+        kvs = np.delete(kvs, [del_rows], axis=0)
+        return kvs
+
+
 
 
 # TODO: implement a robust curve- / thickness-chose-mechanism
