@@ -3,9 +3,8 @@ import numpy as np
 from externe_files import file
 
 
-def give_steps(p0, p1, pillows):
-    result = np.vstack([np.linspace(p0[0], p1[0], pillows), np.linspace(p0[1], p1[1], pillows)]).T
-    return result
+def give_steps(p0, p1, pillars):
+    return np.vstack([np.linspace(p0[0], p1[0], pillars), np.linspace(p0[1], p1[1], pillars)]).T
 
 
 def extract_d(dfile):

@@ -223,27 +223,43 @@ class SNRMapGenerator:
             print('check naming convention of your passed files.')
         return kv
 
+
     def create_kV_curve(self, d):
+        _c = self.curves[float(f'{d}')]['data']
+        kvs = np.empty(shape=3)
+
         for i in range(len(self.kVs)-1):
             _p0 = []
             _p1 = []
+
+            # TODO: change the selection of kvs depending on the curve
             kv0 = int(self.kVs[i])
             kv1 = int(self.kVs[i+1])
-            n = abs(int(kv1) - int(kv0))
-            # now you need to get the T values with the index of _p0 and _p1
-            _curve = self.curves[float(f'{self.ds[i]}')]['data']
-            row0 = _curve[_curve[:, 0] == kv0]
-            row1 = _curve[_curve[:, 0] == kv1]
+            n = abs(int(kv1) - int(kv0) + 1)
+
+            row0 = _c[_c[:, 0] == kv0]
+            row1 = _c[_c[:, 0] == kv1]
 
             _p0 = [row0[:, 1][0], row0[:, 2][0]]
             _p1 = [row1[:, 1][0], row1[:, 2][0]]
 
-            data_points = h.give_steps(p0=_p0, p1=_p1, pillows=n)
+            virtual_kv_points = h.give_steps(p0=_p0, p1=_p1, pillars=n)
 
-            plt.plot(_curve[:, 1], _curve[:, 2])
-            plt.scatter(data_points[:, 0], data_points[:, 1])
-            plt.show()
-            print('test')
+            kvs_vals = np.linspace(kv0, kv1, n)[np.newaxis].T
+            kvs_vals = np.hstack((kvs_vals, virtual_kv_points))
+            kvs = np.vstack((kvs, kvs_vals))
+
+        # fine tune new curve
+        kvs = kvs[1:]
+        del_rows = []
+        for j in range(len(kvs[:, 0])-1):
+            if kvs[j, 0] == kvs[j+1, 0]:
+                del_rows.append(j)
+        del_rows = np.asarray(del_rows)
+        kvs = np.delete(kvs, [del_rows], axis=0)
+        return kvs
+
+
 
 
 # TODO: implement a robust curve- / thickness-chose-mechanism
