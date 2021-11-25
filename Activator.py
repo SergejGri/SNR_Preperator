@@ -1,14 +1,55 @@
 import os
 import gc
 import csv
-import collections
+import numpy as np
+from scipy import interpolate
+from scipy.ndimage import median_filter
 from matplotlib import pyplot as plt
-import helpers as h
+
+from externe_files import file
 from Plots.Plotter import Plotter as PLT
 from Plots.Plotter import TerminalColor as PCOL
 from SNR_Calculation.map_generator import SNRMapGenerator
-from scipy import interpolate
-import numpy as np
+import helpers as h
+
+
+
+def fast_CT():
+    img_shape = (1536, 1944)
+    header = 2048
+    px_map = h.load_bad_pixel_map()
+
+    imgs = r'\\132.187.193.8\junk\sgrischagin\2021-10-04_Sergej_Res-phantom_135kV_1mean_texp195_15proj-per-angle\test_fast_CT'
+    darks = r'\\132.187.193.8\junk\sgrischagin\2021-10-04_Sergej_Res-phantom_135kV_1mean_texp195_15proj-per-angle\darks'
+    refs = r'\\132.187.193.8\junk\sgrischagin\2021-10-04_Sergej_Res-phantom_135kV_1mean_texp195_15proj-per-angle\refs'
+
+    darks = file.volume.Reader(darks, mode='raw', shape=img_shape, header=header, dtype='<u2').load_all()
+    refs = file.volume.Reader(refs, mode='raw', shape=img_shape, header=header, dtype='<u2').load_all()
+    darks_avg = np.nanmean(darks, axis=0)
+    refs_avg = np.nanmean(refs, axis=0)
+
+    list_Ts = []
+    list_angles = []
+    data = file.volume.Reader(imgs, mode='raw', shape=img_shape, header=header, dtype='<u2').load_all()
+    data_avg = np.nanmean(data, axis=0).astype(data.dtype, copy=False)
+
+    medfilt_image = median_filter(data_avg, 5, mode='nearest')[px_map]
+    for k in range(len(data)):
+        data[k][px_map] = medfilt_image
+
+    for i in range(len(data)):
+        if darks is None and refs is None:
+            T = data[np.where(data > 0)].min()
+        else:
+            img = (data[i] - darks_avg) / (refs_avg - darks_avg)
+            T = img[np.where(img > 0)].min()
+        list_Ts.append(T)
+        list_angles.append(i)
+    a = np.asarray(list_Ts)
+    b = np.asarray(list_angles)
+    del img, data, refs, darks
+    gc.collect()
+    return np.vstack([a, b])
 
 
 class Scanner:
@@ -28,17 +69,22 @@ class Scanner:
             _subdir = os.path.join(self.p_SNR_files, _dir)
             for file in os.listdir(_subdir):
                 if file.endswith('.txt'):
-                    d = self.extract_d(file)
-                    if f'_{d}_mm_' in file:
+                    d = h.extract_d(file)
+                    if f'_{d}mm_' in file or f'_{d}-mm_' or f'_{d}_mm_':
                         loc.append(os.path.join(_subdir, file))
         self.files['SNR'] = loc
 
     def collect_transmission_files(self):
-        loc = []
+        loc_fs = []
+        loc_ds = []
         for file in os.listdir(self.p_T_files):
             if file.endswith('.csv'):
-                loc.append(os.path.join(self.p_T_files, file))
-        self.files['T'] = loc
+                d = h.extract_d(file)
+                loc_ds.append(d)
+                loc_fs.append(os.path.join(self.p_T_files, file))
+        self.files['T'] = loc_fs
+        self.files['ds'] = loc_ds
+
 
     def collect_curve_data(self, d):
         loc_list = []
@@ -61,18 +107,13 @@ class Scanner:
             SNR.append(float(data_read[i][2]))
         return kV, T, SNR
 
-    @staticmethod
-    def extract_d(file):
-        d_str = file.split('kV_')[1]
-        d_str = d_str.split('_mm')[0]
-        return int(d_str)
-
 
 class Activator():
-    def __init__(self, data_T: np.array, snr_files: str, T_files: str, U0: int, ds: list, snr_user: float, ssize=None,
+    def __init__(self, snr_files: str, T_files: str, U0: int, snr_user: float, ds: list = None, ssize=None,
                  vir_curve_step: float = None, create_plot: bool = False):
-        self.fast_CT_data = data_T
-        self.T_min = self.get_min_T()
+        self.fast_CT_data = None
+        self.T_min = None
+
         if ssize:
             self.ssize = ssize
         else:
@@ -91,7 +132,11 @@ class Activator():
             self.stop_exe = True
 
         self.kV_interpolation = False
+
         self.ds = ds
+        if self.ds is None:
+            self.ds = self.scanner.files['ds']
+
         self.x_U0_c = []
         self.y_U0_c = []
         self.x_U0_points = []
@@ -110,9 +155,14 @@ class Activator():
         self.opt_data_points = None
         self.map = None
         self.U_0 = {'val': self.U0, 'fit': {}, 'data': {}}
-        self.Generator = SNRMapGenerator(scnr=self.scanner, d=self.ds)
+        self.Generator = SNRMapGenerator(scanner=self.scanner, d=self.ds)
 
     def __call__(self, create_plot: bool = True, *args, **kwargs):
+
+        #self.fast_CT_data = fast_CT()
+        self.fast_CT_data = [[0.513, 0.255, 0.319, 0.419, 0.351, 0.359, 0.473], [0.0, 5.0, 7.0, 10.0, 15.0, 20.0, 25.0]]
+        self.T_min = self.get_min_T()
+
         self.map = self.Generator(spatial_range=self.ssize)
         self.map['T_min'] = self.T_min
         self.map['ds'] = self.ds
@@ -191,11 +241,18 @@ class Activator():
 
             d2 = ds[i + 1]
             d1 = ds[i]
-            _c2 = self.map['d_curves'][d2]['fit']
-            _c1 = self.map['d_curves'][d1]['fit']
+            _c2 = self.map['d_curves'][d2]['data']
+            _c1 = self.map['d_curves'][d1]['data']
             kV_2, T_2, SNR_2 = _c2[:, 0], _c2[:, 1], _c2[:, 2]
             kV_1, T_1, SNR_1 = _c1[:, 0], _c1[:, 1], _c1[:, 2]
 
+
+            #       CREATING EQUALLY SPACED VERTICAL 'VIRTUAL' DATA POINTS BETWEEN REAL DATA POINTS
+            #       -> virtual curve pillows
+
+            # 1)    pick T value from second curve (d2) and T value from first curve (d1)
+            # 2)    pick SNR value from second curve and SNR value from first curve
+            # 3)    create a line between T_2 and T_1 values and linspace it into len(c_num) + 2 points
             for j in range(len(T_1)):
                 _x = [T_2[j], T_1[j]]
                 _y = [SNR_2[j], SNR_1[j]]
@@ -205,6 +262,12 @@ class Activator():
                 X.append(_x_new)
                 Y.append(_y_new)
 
+
+            #       PICK A CURVE AND FIT IT
+
+            # 1)    for the length of entries of the T data, which should be the same length as SNT data,
+            #       append just the picked curve to the _T/_SNR array
+            # 2)    fit the _T/_SNR arrays
             for k in range(c_num.size):
                 _T = []
                 _SNR = []
@@ -217,8 +280,18 @@ class Activator():
                 _SNR = np.asarray(_SNR)
 
                 a, b, c = np.polyfit(_T, _SNR, deg=2)
-                x = np.linspace(_T[0], _T[-1], 141)
+                #x = np.linspace(_T[0], _T[-1], 141)
+                x = np.arange(_T[0], _T[-1], 1/len(_T))
+                #x = np.linspace(_T[0], _T[-1], 100000)
                 y = self.func_poly(x, a, b, c)
+
+                plt.scatter(x, y, label=f'{_d} mm')
+                #plt.plot(_T, _SNR, label=f'{_d} mm')
+                plt.legend()
+                plt.show()
+
+                x, y = self.prep_curve(x=x, y=y)
+
 
                 fitted_curve = self.Generator.merge_data(kV=kV_1, T=x, SNR=y)
                 merged_curve = self.Generator.merge_data(kV=kV_1, T=_T, SNR=_SNR)
@@ -230,6 +303,20 @@ class Activator():
         self.map['d_curves'] = dict(sorted(self.map['d_curves'].items()))
 
         self.find_curve_max()
+
+
+    def prep_curve(self, x, y):
+        xd = np.diff(x)
+        yd = np.diff(y)
+        dist = np.sqrt(xd**2 + yd**2)
+        u = np.cumsum(dist)
+        u = np.hstack([[0], u])
+
+        t = np.linspace(0, u.max(), 141)
+        xn = np.interp(t, u, x)
+        yn = np.interp(t, u, y)
+        return xn, yn
+
 
 
     def find_curve_max(self):

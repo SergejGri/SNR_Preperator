@@ -10,8 +10,8 @@ from SNR_Calculation import preperator
 
 
 if __name__ == '__main__':
-    ds = ['0', '2', '4', '8', '12', '20']
-    kV = '100kV'
+    ds = ['22']
+    kV = '70kV'
     watt = 6
     #_dtype = 'H'
     _dtype = '<u2'
@@ -34,6 +34,7 @@ if __name__ == '__main__':
     dark_imgs = file.volume.Reader(darks, mode='raw', shape=img_shape, header=header, dtype=_dtype).load_all()
 
     _view = slice(500, 1500), slice(645, 890)
+    #_view = slice(500, 1500), slice(600, 1500)
     view = slice(None, None), *_view
 
     SNR_eval = SNR_Evaluator()

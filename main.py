@@ -7,17 +7,21 @@ from SNR_Calculation.map_db import *
 def prep_data(base_path):
     image_shape = (1944, 1536)
     header = 0
-    M = 18.6241
+    M = 19.1262
     watt = 6
-    crop = slice(500, 1500), slice(645, 890)
 
-    for _path in base_path:
-        _str = _path.split('sgrischagin\\')[1]
-        path_to_result = os.path.join(r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR', _str, '20211122')
+    # crop_1
+    #crop = slice(500, 1500), slice(600, 1522)
 
-        calc_snr = SNRPrepperator(path=_path, img_shape=image_shape, header=header, magnification=M,
-                                  crop_area=crop, path_result=path_to_result, watt=watt, overwrite=False)
-        calc_snr()
+    #crop_2
+    crop = slice(500, 1500), slice(900, 1147)
+
+    _str = base_path.split('sgrischagin\\')[1]
+    path_to_result = os.path.join(r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR', _str, '20211122_without_detectorslices')
+
+    calc_snr = SNRPrepperator(path=base_path, img_shape=image_shape, header=header, magnification=M, crop_area=crop,
+                              path_result=path_to_result, watt=watt)
+    calc_snr()
 
 
 
@@ -35,7 +39,9 @@ def fast_CT():
 
     list_Ts = []
     list_angles = []
-    data = file.volume.Reader(imgs, mode='raw', shape=img_shape, header=header, dtype='u2').load_all()
+    data = file.volume.Reader(imgs, mode='raw', shape=img_shape, header=header, dtype='<u2').load_all()
+    px_map = h.load_bad_pixel_map()
+
     for i in range(len(data)):
         if darks is None and refs is None:
             T = data[np.where(data > 0)].min()
@@ -56,32 +62,20 @@ def main():
     # =============== RAW DATA PREPERATION ===============
     #   1) calculates SNR spectra from sets of projections, refs and darks
     #   2) saves the calculated spectra as a txt file + final plot in the same directory
-    #   :param path_to_raw_data: must be the directory of the kV folders
-    path_to_raw_data = [r'\\132.187.193.8\junk\sgrischagin\2021-11-17-Sergej-StepWedge_6W']
-    prep_data(base_path=path_to_raw_data)
+    #   :param base_path: must be the directory of the kV folders
+
+    #prep_data(base_path=r'\\132.187.193.8\junk\sgrischagin\2021-11-23-sergej_Al-StepWedge_6W')
 
 
-    snr_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\2021-08-30_Evaluation\SNR'
-    T_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\2021-08-30_Evaluation\Transmission'
-    #result = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-10-01_Sergej_SNR-Stufenkeil_6W_130proj_0-10mm\MAP'
 
 
-    # 1) positioniere Objekt auf dem Drehteller und starte fast_CT
-    #arr_T = fast_CT()
-    arr_T = [[0.513, 0.255, 0.319, 0.419, 0.351, 0.359, 0.473], [0.0, 5.0, 7.0, 10.0, 15.0, 20.0, 25.0]]
-    # 2) der ausgespuckte Array muss in den Activator gepackt werden um U_best bei einer gegebenen Raumauflösung zu bekommen
-    acti = Activator(data_T=arr_T,
-                     snr_files=snr_data,
-                     T_files=T_data,
-                     U0=100,
-                     snr_user=1.0,
-                     ds=[1, 4, 5, 8, 9],
-                     ssize=(150, 250))
+
+    snr_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-11-23-sergej_Al-StepWedge_6W\20211122_without_detectorslices\2021-11-24_SNR'
+    T_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-11-23-sergej_Al-StepWedge_6W\20211122_without_detectorslices\2021-11-24_T'
+    result = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-11-23-sergej_Al-StepWedge_6W\20211122_without_detectorslices\EVALUATION'
+
+    acti = Activator(snr_files=snr_data, T_files=T_data, U0=100, snr_user=1.0, ssize=(150, 250))
     acti()
-
-
-
-
 
 
 if __name__ == '__main__':

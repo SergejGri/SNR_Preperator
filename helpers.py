@@ -1,11 +1,29 @@
+import re
 import numpy as np
 from externe_files import file
 
 
-def load_bad_pixel_map():
+
+def extract_d(dfile):
+    d_str = re.findall("([0-9]+)mm", dfile)
+    if len(d_str) < 1:
+        d_str = re.findall("([0-9]+)_mm", dfile)
+    if is_list(d_str):
+        return int(d_str[0])
+    else:
+        return int(d_str)
+
+def is_list(expression):
+    if isinstance(expression, list):
+        return True
+    else:
+        return False
+
+
+def load_bad_pixel_map(crop):
     path_to_map = r'\\132.187.193.8\junk\sgrischagin\BAD-PIXEL-bin1x1-scans-MetRIC_SCAP_IMGS.tif'
-    bad_pixel_map = file.image.load(path_to_map)
-    print(f'bad pixel map from path: {path_to_map} loaded')
+    bad_pixel_map = file.image.load(path_to_map)[crop]
+    print(f'\n{path_to_map} loaded as bad pixel map. \n')
     return bad_pixel_map
 
 def poly_fit(var_x, var_y, steps):

@@ -1,3 +1,4 @@
+import csv
 import gc
 import time
 import numpy as np
@@ -8,7 +9,7 @@ from Plots import Plotter
 
 
 class SNRMapGenerator:
-    def __init__(self, scnr: object, d: list, kV_filter: list = None):
+    def __init__(self, scanner: object, d: list, kV_filter: list = None):
         """
         :param path_snr:
         :param path_T:
@@ -16,12 +17,13 @@ class SNRMapGenerator:
         :param d:
         :param kV_filter:
         """
-        self.scanner = scnr
+        self.scanner = scanner
         self.path_snr = self.scanner.p_SNR_files
         self.path_T = self.scanner.p_T_files
         self.path_fin = os.path.join(os.path.dirname(self.path_T), 'MAP')
 
-        self.ds = d
+        self.ds = self.scanner.files['ds']
+        self.kVs = self.find_kvs()
         self.str_d = None
         self.T_min = None
         self.curves = {}
@@ -40,10 +42,15 @@ class SNRMapGenerator:
 
 
     def __call__(self, spatial_range, *args, **kwargs):
-        self.check_input(spatial_range)
+        self.check_range(spatial_range)
         self.MAP_object['ROIs'] = self.ROI
 
+
         for i in range(len(self.ds)):
+            # 1)    look into base_path and find the used voltages to get the steps between kV_{i+1} and kV_{i}
+            # 2)    since only whole num voltages are allowed, divide the range between kV_{i+1} and kV_{i} into one
+            #       step ranges: Range from 40kV - 180kV -> 141 steps (including the very last step 140+1)
+
             self.str_d = f'{self.ds[i]}_mm'
             self.curves[float(f'{self.ds[i]}')] = {}
 
@@ -141,8 +148,19 @@ class SNRMapGenerator:
             data = np.concatenate((xvals, inter_SNR, inter_SPS, inter_NPS), axis=1)
             return data
 
+    def find_kvs(self):
+        kvs = []
+        for tfile in os.listdir(self.path_T):
+            with open(os.path.join(self.path_T, tfile), mode='r') as f:
+                for row in f:
+                    kvs.append(row.split(';')[0])
+            break
+        return kvs
+
+
     def piecewise_interpolatio(self):
         pass
+
 
 
     def reset(self):
@@ -171,14 +189,14 @@ class SNRMapGenerator:
         return val
 
 
-    def check_input(self, port):
-        if isinstance(port, int):
-            port = (port,)[0]
-            lb = port - 0.1 * port
-            rb = port + 0.1 * port
+    def check_range(self, rng):
+        if isinstance(rng, int):
+            rng = (rng,)[0]
+            lb = rng - 0.1 * rng
+            rb = rng + 0.1 * rng
         else:
-            lb = port[0]
-            rb = port[1]
+            lb = rng[0]
+            rb = rng[1]
         self.ROI['lb'] = lb
         self.ROI['rb'] = rb
 

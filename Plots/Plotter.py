@@ -73,7 +73,7 @@ class Plotter:
         fig.savefig(os.path.join(path_result, 'plots', f'MAP_ROI-{roi_l}-{roi_r}.pdf'), dpi=600)
 
 
-    def create_v_plot(self, path_result: str, object, Y_style: str = 'linear', full: bool = False):
+    def create_v_plot(self, path_result: str, object, Y_style: str = 'log', full: bool = False):
         fig = plt.figure()
         ax = fig.add_subplot()
         #ax2 = plt.twiny()
@@ -88,18 +88,13 @@ class Plotter:
 
             is_int = self.check_ds_nature(d)
 
-            idx_100 = np.where(_c_fit[:, 0] == 100.0)
-            idx_40 = np.where(_c_fit[:, 0] == 40.0)
-            idx_180 = np.where(_c_fit[:, 0] == 180.0)
+
             if is_int and d in object['ds']:
                 ax.scatter(_c_fit[:, 1][_c_max_idx], _c_fit[:, 2][_c_max_idx], marker='x', alpha=1.0, s=15, c='grey')
                 ax.scatter(_c_fit[:, 1], _c_fit[:, 2], marker='o', alpha=0.7)
                 #ax.plot(_c_fit[:, 1], _c_fit[:, 2], linestyle='-', linewidth='2', alpha=1.0, label=f'{d} mm')
                 ax.scatter(_c_data[:, 1], _c_data[:, 2], marker='o', alpha=1.0)
 
-                ax.scatter(_c_fit[:, 1][idx_100], _c_fit[:, 2][idx_100], c='red')
-                ax.scatter(_c_fit[:, 1][idx_40], _c_fit[:, 2][idx_40], c='red')
-                ax.scatter(_c_fit[:, 1][idx_180], _c_fit[:, 2][idx_180], c='red')
             else:
                 ax.scatter(_c_fit[:, 1][_c_max_idx], _c_fit[:, 2][_c_max_idx], marker='x', alpha=0.8, s=10, c='grey')
                 ax.plot(_c_data[:, 1], _c_data[:, 2], linestyle='-', linewidth=1, alpha=0.15, c='grey')
@@ -124,6 +119,7 @@ class Plotter:
             os.makedirs(sv_path)
         plt.show()
         fig.savefig(os.path.join(path_result, 'plots', f'MAP_ROI-{roi_l}-{roi_r}.pdf'), dpi=600)
+
 
     def fit_me_for_plot(self, _c):
         a, b, c = np.polyfit(_c[:, 1], _c[:, 2], deg=2)
