@@ -73,7 +73,7 @@ class Plotter:
         fig.savefig(os.path.join(path_result, 'plots', f'MAP_ROI-{roi_l}-{roi_r}.pdf'), dpi=600)
 
 
-    def create_v_plot(self, path_result: str, object, Y_style: str = 'log', full: bool = False):
+    def create_v_plot(self, path_result: str, object, Y_style: str = 'log', detailed: bool = False):
         fig = plt.figure()
         ax = fig.add_subplot()
         roi_l = object['ROIs']['lb']
@@ -99,7 +99,7 @@ class Plotter:
                 ax.plot(_c_data[:, 1], _c_data[:, 2], linestyle='-', linewidth=1, alpha=0.15, c='grey')
 
 
-        if full and object['intercept_found']:
+        if detailed and object['intercept_found']:
             tt = ax.axvline(x=object['T_min'], c='green', linestyle='--', alpha=0.5, linewidth=1)
 
 

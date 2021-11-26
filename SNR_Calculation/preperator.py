@@ -10,18 +10,7 @@ from scipy.ndimage import mean
 from externe_files import file
 from externe_files.SNR_spectra import SNR_Evaluator, ImageSeriesPixelArtifactFilterer
 
-
-def check_px_vals(img):
-    start = timeit.default_timer()
-    for z in range(len(img)):
-        if any(0.0 in x for x in img[z]):
-            print(f'x=0.0 @ z:{z}')
-        if any(1.0 in x for x in img[z]):
-            print(f'x=1.0 @ z:{z}')
-        else:
-            pass
-    stop = timeit.default_timer()
-    print(f'Execution time: {round((stop - start), 2)}s')
+DETAILED = True
 
 
 class SNRPrepperator:
@@ -59,8 +48,7 @@ class SNRPrepperator:
         self.img_shape = img_shape
         if self.img_shape != (1536, 1944):
             print(f'Since your passed detector size of {self.img_shape} differ from my default expectation of '
-                  f'(1536, 1944), i do not know which area you want to analyse => You need to pass values for slice_l '
-                  f'and slice_r to get plausible results.')
+                  f'(1536, 1944). ')
         self.header = header
         self.crop_area = crop_area
         self.view = (0, 0), *self.crop_area
@@ -111,10 +99,9 @@ class SNRPrepperator:
     def __call__(self):
         self.calc_2D_snr(properties=self.get_properties())
 
-
     def calc_2D_snr(self, properties):
-        #px_map = h.load_bad_pixel_map(crop=self.crop_area)
-        #filterer = ImageSeriesPixelArtifactFilterer(bad_pixel_map=px_map)
+        # px_map = h.load_bad_pixel_map(crop=self.crop_area)
+        # filterer = ImageSeriesPixelArtifactFilterer(bad_pixel_map=px_map)
         filterer = ImageSeriesPixelArtifactFilterer()
 
         for dir in properties:
@@ -137,8 +124,13 @@ class SNRPrepperator:
 
             darks = file.volume.Reader(p_dark, **self.img_params).load_all()
             refs = file.volume.Reader(p_ref, **self.img_params).load_all()
-            print(f'\n'
-                  f'using images in {p_dark} as darks for {dir}')
+
+            if DETAILED:
+                print(f'\n'
+                      f'using images in {p_dark} as darks for {dir}')
+                print(f'\n'
+                      f'using images in {p_ref} as refs for {dir}')
+
             for subdir in subdirs:
                 _d = int(subdir)
                 print(f'working on {dir}: {_d} mm')
@@ -158,7 +150,9 @@ class SNRPrepperator:
                 results.append(SNR_eval)
                 del data
                 gc.collect()
-                print(f'Done with {dir}: {_d} mm')
+
+                if DETAILED:
+                    print(f'Done with {dir}: {_d} mm')
 
             print('finalizing figure...')
             SNR_eval.finalize_figure(figure, title=f'{dir} @{self.watt}W',
@@ -193,14 +187,14 @@ class SNRPrepperator:
         subdirs.sort()
         return subdirs
 
-
     def get_img_params(self):
         params = dict(mode='raw', shape=self.img_shape, header=self.header, dtype='<u2', crops=self.view)
         return params
 
     def write_T_data(self, path_T, d, T, voltage):
         file_l = f'{d}_mm.csv'
-        print(f'WRITING FILES {d} mm')
+        if DETAILED:
+            print(f'WRITING FILES {d} mm')
 
         _path_T = os.path.join(path_T, file_l)
 
@@ -220,15 +214,14 @@ class SNRPrepperator:
         means = []
         for i in range(0, img.shape[0]-h, h):
             for j in range(0, img.shape[1]-w, w):
-                rect = img[i:i + h, j:j+w]
+                rect = img[i:i+h, j:j+w]
                 mean = rect.mean()
                 means.append(mean)
                 transmission_min = min(means)
-                plt.imshow(rect, interpolation='nearest')
+                # plt.imshow(rect, interpolation='nearest')
         del img
         gc.collect()
         return transmission_min
-
 
     def evaluate_snr(self, snr_obj, path_save_SNR, fig, data, refs, darks, _d, kV, t_exp, filterer):
         snr_obj.estimate_SNR(data, refs, darks, exposure_time=t_exp,
@@ -281,13 +274,6 @@ class SNRPrepperator:
         SNR_eval.finalize_figure(figure, title=f'{dir}_@{self.watt}W', smallest_size=self.x_min,
                                  save_path=os.path.join(path_save_SNR, f'{str_voltage}kV'))
 
-
-
-
-
-
-
-
     @staticmethod
     def prepare_imgs(path, dir, subf):
         imgs = None
@@ -302,7 +288,6 @@ class SNRPrepperator:
     @staticmethod
     def filter_area_to_t(thick):
         return int(thick)
-
 
 
 class ImageHolder:
@@ -322,9 +307,6 @@ class ImageHolder:
             self.images = file.volume.Reader(self.path, mode='raw', shape=self.shape, header=self.header,
                                              dtype='<u2').load_range((self.stack_range[0], self.stack_range[-1]))
         return self.images
-
-
-
 
     def get_t_exp(self):
         for file in os.listdir(self.path):
@@ -348,6 +330,7 @@ def get_t_exp_old(path):
         break
     return t_exp
 
+
 def get_texp(path, kv):
     pfile = None
     for file in os.listdir(path):
@@ -368,7 +351,7 @@ def get_texp(path, kv):
     else:
         print('no file for exposure times were found. Pls make shure to put it in the same direction '
               'as the voltage folders and name it \'t_exp.txt\'')
-    return t_exp/1000
+    return t_exp / 1000
 
 
 def get_voltage(dir):

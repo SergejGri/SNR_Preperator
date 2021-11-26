@@ -160,7 +160,7 @@ class Activator:
         self.U_0 = {'val': self.U0, 'fit': {}, 'data': {}}
         self.Generator = SNRMapGenerator(scanner=self.scanner, d=self.ds, kV_filter=kv_ex)
 
-    def __call__(self, create_plot: bool = True, *args, **kwargs):
+    def __call__(self, create_plot: bool = True, detailed: bool = False):
 
         #self.fast_CT_data = fast_CT()
         self.fast_CT_data = [[0.513, 0.255, 0.319, 0.419, 0.351, 0.359, 0.473], [0.0, 5.0, 7.0, 10.0, 15.0, 20.0, 25.0]]
@@ -186,7 +186,7 @@ class Activator:
         self.printer()
         if create_plot:
             _plt = PLT()
-            _plt.create_v_plot(path_result=self.scanner.path_fin, object=self.map, full=True)
+            _plt.create_v_plot(path_result=self.scanner.path_fin, object=self.map, detailed=detailed)
 
 
     def get_min_T(self):

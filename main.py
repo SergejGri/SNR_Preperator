@@ -28,19 +28,17 @@ def main():
     #   2) saves the calculated spectra as a txt file + final plot in the same directory
     #   :param base_path: must be the directory of the kV folders
 
-    prep_data(base_path=r'\\132.187.193.8\junk\sgrischagin\2021-11-23-sergej_Al-StepWedge_6W')
+    prep_data(base_path=r'\\132.187.193.8\junk\sgrischagin\2021-11-26-sergej_Alukeil_6W')
 
 
 
 
-
-    snr_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-11-23-sergej_Al-StepWedge_6W\20211125_withpxmap\2021-11-25_SNR'
-    T_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-11-23-sergej_Al-StepWedge_6W\20211125_withpxmap\2021-11-25_T'
-    result = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-11-23-sergej_Al-StepWedge_6W\20211125_withpxmap\MAP'
+    #snr_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-11-23-sergej_Al-StepWedge_6W\20211126\2021-11-26_SNR'
+    #T_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-11-23-sergej_Al-StepWedge_6W\20211126\2021-11-26_T'
 
     # TODO: implement excluding kvs as kv_ex
-    acti = Activator(snr_files=snr_data, T_files=T_data, U0=100, snr_user=1.0, ssize=(150, 250), kv_ex=None)
-    acti()
+    #acti = Activator(snr_files=snr_data, T_files=T_data, U0=100, snr_user=1.0, ssize=(150, 250), kv_ex=None)
+    #acti(create_plot=True, detailed=False)
 
 
 if __name__ == '__main__':
