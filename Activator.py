@@ -109,7 +109,7 @@ class Scanner:
         return kV, T, SNR
 
 
-class Activator():
+class Activator:
     def __init__(self, snr_files: str, T_files: str, U0: int, snr_user: float, kv_ex: list = None, ds: list = None,
                  ssize=None, vir_curve_step: float = None, create_plot: bool = False):
         self.fast_CT_data = None
@@ -127,7 +127,7 @@ class Activator():
         self.curves = []
         self.stop_exe = False
 
-        if 40 <= U0 and U0 <= 180:
+        if 40 <= U0 <= 180:
             self.U0 = U0
         else:
             print(f'The adjust Voltage is out of range! U0 = {U0} \n'

@@ -5,6 +5,8 @@ import gc
 import timeit
 import helpers as h
 import numpy as np
+from matplotlib import pyplot as plt
+from scipy.ndimage import mean
 from externe_files import file
 from externe_files.SNR_spectra import SNR_Evaluator, ImageSeriesPixelArtifactFilterer
 
@@ -99,9 +101,11 @@ class SNRPrepperator:
             print('only_snr = True --> No Transmission calc.')
 
         self.c_date = datetime.datetime.now()
-        if snr_result_name is not None: self.SNR_name = snr_result_name
+        if snr_result_name is not None:
+            self.SNR_name = snr_result_name
         self.SNR_name = f'{self.c_date.year}-{self.c_date.month}-{self.c_date.day}_SNR'
-        if trans_result_name is not None: self.T_name = trans_result_name
+        if trans_result_name is not None:
+            self.T_name = trans_result_name
         self.T_name = f'{self.c_date.year}-{self.c_date.month}-{self.c_date.day}_T'
 
     def __call__(self):
@@ -133,6 +137,8 @@ class SNRPrepperator:
 
             darks = file.volume.Reader(p_dark, **self.img_params).load_all()
             refs = file.volume.Reader(p_ref, **self.img_params).load_all()
+            print(f'\n'
+                  f'using images in {p_dark} as darks for {dir}')
             for subdir in subdirs:
                 _d = int(subdir)
                 print(f'working on {dir}: {_d} mm')
@@ -205,12 +211,23 @@ class SNRPrepperator:
     def calc_T(self, data, refs, darks):
         darks_avg = np.nanmean(darks, axis=0)
         refs_avg = np.nanmean(refs, axis=0)
+        data_avg = np.nanmean(data, axis=0)
+        img = (data_avg - darks_avg) / (refs_avg - darks_avg)
 
-        img = (data - darks_avg) / (refs_avg - darks_avg)
-        T = img[np.where(img > 0)].mean()
+        transmission_min = 0
+        h = 20
+        w = 20
+        means = []
+        for i in range(0, img.shape[0]-h, h):
+            for j in range(0, img.shape[1]-w, w):
+                rect = img[i:i + h, j:j+w]
+                mean = rect.mean()
+                means.append(mean)
+                transmission_min = min(means)
+                plt.imshow(rect, interpolation='nearest')
         del img
         gc.collect()
-        return T
+        return transmission_min
 
 
     def evaluate_snr(self, snr_obj, path_save_SNR, fig, data, refs, darks, _d, kV, t_exp, filterer):

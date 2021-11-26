@@ -43,9 +43,6 @@ def create_kv_grid(data_curve):
     return kv_grid
 
 
-
-
-
 def extract_d(dfile):
     d_str = re.findall("([0-9]+)mm", dfile)
     if len(d_str) < 1:
@@ -54,6 +51,7 @@ def extract_d(dfile):
         return int(d_str[0])
     else:
         return int(d_str)
+
 
 def extract_kv(dfile):
     d_str = re.findall("([0-9]+)kV", dfile)
@@ -64,6 +62,7 @@ def extract_kv(dfile):
     else:
         return int(d_str)
 
+
 def is_list(expression):
     if isinstance(expression, list):
         return True
@@ -73,7 +72,8 @@ def is_list(expression):
 
 def load_bad_pixel_map(crop):
     path_to_map = r'\\132.187.193.8\junk\sgrischagin\BAD-PIXEL-bin1x1-scans-MetRIC_SCAP_IMGS.tif'
-    bad_pixel_map = file.image.load(path_to_map)[crop]
+    _crop = slice(crop[0][0], crop[0][1]), slice(crop[1][0], crop[1][1])
+    bad_pixel_map = file.image.load(path_to_map)[_crop]
     print(f'\n{path_to_map} loaded as bad pixel map. \n')
     return bad_pixel_map
 
