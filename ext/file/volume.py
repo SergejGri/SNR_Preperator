@@ -10,9 +10,9 @@ THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND ANY EXPRE
 # Developed at the Lehrstuhl fuer Roentgenmikroskopie/Universitaet Wuerzburg, Josef-Martin-Weg 63, 97074 Wuerzburg, Germany
 import glob, gc, time, shutil, concurrent.futures as conc_fut, copy
 
-from externe_files.file.image import *
-from externe_files.image.resize import *
-from externe_files.common.settings_hash import *
+from ext.file.image import *
+from ext.image.resize import *
+from ext.common.settings_hash import *
 
 #from file.image import *
 #from common.settings_hash import *
@@ -810,7 +810,7 @@ class Reader():
                     self.processing_filter_range += self.settings_list[plugin_index]['filter_range']
                 else:
                     #print('used numpy fallback for small fft', False if prod(image_shape) > 1e6 else True)
-                    from externe_files.image.fourier import FourierFilterer
+                    from ext.image.fourier import FourierFilterer
                     filterer = FourierFilterer(batch=self.batch)
                     filter_calls = [(self.plugin_list[plugin_index].get_filter, self.settings_list[plugin_index]),]
                     filterer.pad_length = self.settings_list[plugin_index]['filter_range']

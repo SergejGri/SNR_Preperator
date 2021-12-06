@@ -25,7 +25,7 @@ import os
 import numpy as np
 from scipy.ndimage import median_filter, gaussian_filter
 
-from externe_files import image, file
+from ext import image, file
 
 version = 1, 2
 version_str = f'v{".".join([str(v) for v in version])}'
@@ -445,7 +445,7 @@ class ImageSeriesPixelArtifactFilterer:
         # self.speckle_iterations = 2
         # self.speckle_warn_fraction = 0.01
 
-        self.speckle_std_threshold = 3
+        self.speckle_std_threshold = 2.6
         self.speckle_iterations = 2
         self.speckle_warn_fraction = 0.01
 

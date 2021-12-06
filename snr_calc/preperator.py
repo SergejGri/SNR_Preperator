@@ -2,31 +2,19 @@ import csv
 import datetime
 import os
 import gc
-import timeit
 import helpers as h
 import numpy as np
-from externe_files import file
-from externe_files.SNR_spectra import SNR_Evaluator, ImageSeriesPixelArtifactFilterer
+from ext import file
+from ext.SNR_spectra import SNR_Evaluator, ImageSeriesPixelArtifactFilterer
 
-
-def check_px_vals(img):
-    start = timeit.default_timer()
-    for z in range(len(img)):
-        if any(0.0 in x for x in img[z]):
-            print(f'x=0.0 @ z:{z}')
-        if any(1.0 in x for x in img[z]):
-            print(f'x=1.0 @ z:{z}')
-        else:
-            pass
-    stop = timeit.default_timer()
-    print(f'Execution time: {round((stop - start), 2)}s')
+DETAILED = True
 
 
 class SNRPrepperator:
-    def __init__(self, img_shape: tuple, header: int, path: str, path_result: str, magnification: float,
-                 crop_area: tuple, stack_range: tuple = None, pixel_size_units: str = None, watt: float = None,
-                 detector_pixel: float = None, smallest_size: float = None, nbins: int = None, exclude: list = None,
-                 only_snr: bool = False, snr_result_name: str = None, trans_result_name: str = None):
+    def __init__(self, path: str, path_result: str, magnification: float, image_holder, pixel_size_units: str = None,
+                 watt: float = None, detector_pixel: float = None, smallest_size: float = None, nbins: int = None,
+                 ex_kvs: list = None, ex_ds: list = None, only_snr: bool = False, snr_result_name: str = None,
+                 trans_result_name: str = None):
         """
         see __init__() for the individual types of expected inputs of parameters
         :param img_shape: (detector height, detector width) in pixels
@@ -43,7 +31,7 @@ class SNRPrepperator:
                 is passed, default value of micrometer will be used.
         :param smallest_size: if smallest size is passed, the maximal value of the u-axis will be set to the passed
                 value
-        :param exclude: expects a list of kV-folders which the user want to avoid. IF no list ist passed, the class will
+        :param ex_kvs: expects a list of kV-folders which the user want to avoid. IF no list ist passed, the class will
             evaluate all voltage folders in the base_path
         :param mode_snr: default value True. If set to False, only transmission (as long as mode_T==True) will be
                 evaluated
@@ -53,21 +41,7 @@ class SNRPrepperator:
         """
         self.path_base = path
         self.path_result = path_result
-
-        self.img_shape = img_shape
-        if self.img_shape != (1536, 1944):
-            print(f'Since your passed detector size of {self.img_shape} differ from my default expectation of '
-                  f'(1536, 1944), i do not know which area you want to analyse => You need to pass values for slice_l '
-                  f'and slice_r to get plausible results.')
-        self.header = header
-        self.crop_area = crop_area
-        self.view = slice(None, None), *self.crop_area
-
-        self.img_params = self.get_img_params()
-
-        self.stack_range = stack_range
-        if self.stack_range is None:
-            self.stack_range = (None, None)
+        self.img_holder = image_holder
         self.M = magnification
 
         if detector_pixel is not None:
@@ -92,30 +66,42 @@ class SNRPrepperator:
             self.watt = 'unknown'
 
         self.x_min = smallest_size
-        self.exclude = exclude
+
+        self.ex_kvs = []
+        if ex_kvs is not None:
+            self.ex_kvs = ex_kvs
+
+        self.ex_ds = []
+        if ex_ds is not None:
+            self.ex_ds = ex_ds
 
         self.only_snr = only_snr
         if self.only_snr:
             print('only_snr = True --> No Transmission calc.')
 
         self.c_date = datetime.datetime.now()
-        if snr_result_name is not None: self.SNR_name = snr_result_name
+        if snr_result_name is not None:
+            self.SNR_name = snr_result_name
         self.SNR_name = f'{self.c_date.year}-{self.c_date.month}-{self.c_date.day}_SNR'
-        if trans_result_name is not None: self.T_name = trans_result_name
+        if trans_result_name is not None:
+            self.T_name = trans_result_name
         self.T_name = f'{self.c_date.year}-{self.c_date.month}-{self.c_date.day}_T'
 
     def __call__(self):
         self.calc_2D_snr(properties=self.get_properties())
 
-
     def calc_2D_snr(self, properties):
-        #px_map = h.load_bad_pixel_map(crop=self.crop_area)
-        #filterer = ImageSeriesPixelArtifactFilterer(bad_pixel_map=px_map)
-        filterer = ImageSeriesPixelArtifactFilterer()
 
         for dir in properties:
-            p_dark = os.path.join(self.path_base, dir, 'darks')
-            p_ref = os.path.join(self.path_base, dir, 'refs')
+            voltage = h.extract(what='kv', dfile=dir)
+
+            SNR_eval = SNR_Evaluator()
+
+            path_darks = os.path.join(self.path_base, dir, 'darks')
+            path_refs = os.path.join(self.path_base, dir, 'refs')
+            imgs_refs = self.img_holder.load_stack(path=path_refs)
+            imgs_darks = self.img_holder.load_stack(path=path_darks)
+
             psave_SNR = os.path.join(self.path_result, self.SNR_name, dir)
             psave_T = os.path.join(self.path_result, self.T_name)
             if not os.path.exists(psave_T):
@@ -126,49 +112,51 @@ class SNRPrepperator:
             properties[dir]['path_snr'] = os.path.join(self.path_result, self.SNR_name, dir)
             properties[dir]['path_T'] = os.path.join(self.path_result, self.T_name)
 
-            SNR_eval = SNR_Evaluator()
-
             results = []
             figure = None
 
-            darks = file.volume.Reader(p_dark, **self.img_params).load_all()
-            refs = file.volume.Reader(p_ref, **self.img_params).load_all()
             for subdir in subdirs:
                 _d = int(subdir)
+
                 print(f'working on {dir}: {_d} mm')
 
                 p_imgs, _, _ = self.prepare_imgs(self.path_base, dir, subdir)
-                data = file.volume.Reader(p_imgs, **self.img_params).load_all()
+                imgs_data = self.img_holder.load_stack(path=p_imgs)
 
                 if not self.only_snr:
-                    T = self.calc_T(data, refs, darks)
-                    self.write_T_data(psave_T, _d, T, get_voltage(dir))
+                    T = self.calc_T(imgs_data, imgs_refs, imgs_darks)
+                    self.write_T_data(psave_T, _d, T, voltage)
 
-                SNR_eval, figure = self.evaluate_snr(snr_obj=SNR_eval, path_save_SNR=psave_SNR, fig=figure, data=data,
-                                                     refs=refs, darks=darks, _d=_d, kV=get_voltage(dir), t_exp=t_exp,
-                                                     filterer=filterer)
+                SNR_eval, figure = self.evaluate_snr(snr_obj=SNR_eval, path_save_SNR=psave_SNR, fig=figure,
+                                                     data=imgs_data,
+                                                     refs=imgs_refs,
+                                                     darks=imgs_darks,
+                                                     _d=_d, kV=voltage, t_exp=t_exp,
+                                                     filterer=self.img_holder.filterer)
                 figure = SNR_eval.plot(figure, f'{_d} mm')
 
                 results.append(SNR_eval)
-                del data
-                gc.collect()
-                print(f'Done with {dir}: {_d} mm')
+
+                if DETAILED:
+                    print(f'Done with {dir}: {_d} mm')
 
             print('finalizing figure...')
             SNR_eval.finalize_figure(figure, title=f'{dir} @{self.watt}W',
-                                     save_path=os.path.join(psave_SNR, f'{get_voltage(dir)}kV'))
+                                     save_path=os.path.join(psave_SNR, f'{voltage}kV'))
 
     def get_properties(self):
         directories = {}
-        dict_sdir = {}
+
         for dirr in os.listdir(self.path_base):
-            if os.path.isdir(os.path.join(self.path_base, dirr)):
-                kv = int(dirr.split('kV')[0])
-                if os.path.isdir(os.path.join(self.path_base, dirr)) and 'kV' in dirr:
+            if os.path.isdir(os.path.join(self.path_base, dirr)) and 'kV' in dirr:
+                kv = h.extract(what='kv', dfile=dirr)
+                if kv in self.ex_kvs:
+                    pass
+                else:
                     subdirs = self.get_subdirs(dir=dirr)
                     t_exp = get_texp(path=self.path_base, kv=kv)
                     dict_sdir = {'ds': subdirs, 't_exp': t_exp}
-                directories[dirr] = dict_sdir
+                    directories[dirr] = dict_sdir
         return directories
 
     def get_subdirs(self, dir):
@@ -176,30 +164,28 @@ class SNRPrepperator:
         working_dir = os.path.join(self.path_base, dir)
 
         for sdir in os.listdir(working_dir):
-            if os.path.isdir(os.path.join(working_dir, sdir)):
-                subdirs.append(sdir)
-        if 'darks' in subdirs:
-            subdirs.remove('darks')
-        if 'refs' in subdirs:
-            subdirs.remove('refs')
+            if sdir.isdigit():
+                if self.ex_ds is not None:
+                    if int(sdir) in self.ex_ds:
+                        pass
+                    else:
+                        subdirs.append(sdir)
 
-        subdirs = [int(x) for x in subdirs]
-        subdirs.sort()
-        return subdirs
+        try:
+            subdirs = [int(x) for x in subdirs]
+            subdirs.sort()
+            return subdirs
+        except:
+            print(f'Not correct naming? It seems that in your subdirs folder of {dir} have non numeric values \n-> '
+                  f'sorting not possible.\n'
+                  f'Please make sure your thickness folders are following the naming convention.\n')
+            return 0
 
-
-
-    def get_img_params(self):
-        params = {'mode': 'raw',
-                  'shape': self.img_shape,
-                  'header': self.header,
-                  'dtype': '<u2',
-                  'crops': ((0, 0), (500, 1500), (600, 1522))}
-        return params
 
     def write_T_data(self, path_T, d, T, voltage):
         file_l = f'{d}_mm.csv'
-        print(f'WRITING FILES {d} mm')
+        if DETAILED:
+            print(f'WRITING FILES {d} mm')
 
         _path_T = os.path.join(path_T, file_l)
 
@@ -210,70 +196,33 @@ class SNRPrepperator:
     def calc_T(self, data, refs, darks):
         darks_avg = np.nanmean(darks, axis=0)
         refs_avg = np.nanmean(refs, axis=0)
+        data_avg = np.nanmean(data, axis=0)
+        img = (data_avg - darks_avg) / (refs_avg - darks_avg)
 
-        img = (data - darks_avg) / (refs_avg - darks_avg)
-        T = img[np.where(img > 0)].mean()
+        transmission_min = 0
+        h = 20
+        w = 20
+        median = []
+        for i in range(0, img.shape[0]-h, h):
+            for j in range(0, img.shape[1]-w, w):
+                rect = img[i:i+h, j:j+w]
+                medn = np.median(rect)
+                median.append(medn)
+                transmission_min = min(median)
+                # plt.imshow(rect, interpolation='nearest')
         del img
         gc.collect()
-        return T
-
+        return transmission_min
 
     def evaluate_snr(self, snr_obj, path_save_SNR, fig, data, refs, darks, _d, kV, t_exp, filterer):
+
         snr_obj.estimate_SNR(data, refs, darks, exposure_time=t_exp,
                              pixelsize=self.pixel_size, pixelsize_units=self.pixel_size_units,
                              series_filterer=filterer, u_nbins=self.nbins,
                              save_path=os.path.join(path_save_SNR,
                                                     f'SNR(x)_{self.watt}W_{kV}kV_{_d}mm_texp{t_exp}s'))
+
         return snr_obj, fig
-
-    def calc_3D_snr(self):
-        # path_save_SNR = os.path.join(self.path_result, self.SNR_name, dir)
-        # path_save_T = os.path.join(self.path_result, self.T_name)
-        # if not os.path.exists(path_save_T):
-        #    os.makedirs(path_save_T)
-
-        refs = ImageHolder(
-            path=r'\\132.187.193.8\junk\sgrischagin\2021-08-26-Sergej_SNR-Stufenkeil_130proj_6W\100kV\refs')
-
-        SNR_eval = SNR_Evaluator()
-        str_voltage = get_voltage(dir)
-
-        results = []
-
-        p_imgs = r''
-        p_refs = r''
-        p_darks = r''
-
-        darks = file.volume.Reader(p_darks, mode='raw', shape=self.img_shape, header=self.header,
-                                   dtype='u2').load_range((self.stack_range[0], self.stack_range[-1]))
-        refs = file.volume.Reader(p_refs, mode='raw', shape=self.img_shape, header=self.header,
-                                  dtype='u2').load_range((self.stack_range[0], self.stack_range[-1]))
-        figure = None
-        for a in subf:
-            _d = self.filter_area_to_t(a)
-
-            print(f'working on {dir}: {_d} mm')
-            data = file.volume.Reader(p_imgs, mode='raw', shape=self.img_shape, header=self.header,
-                                      dtype='u2').load_range((self.stack_range[0], self.stack_range[-1]))
-
-            self.t_exp = get_t_exp(p_imgs)
-            SNR_eval, figure = self.evaluate_snr(SNR_eval, p_imgs, path_save_SNR, figure, data, refs, darks, _d,
-                                                 str_voltage)
-            figure = SNR_eval.plot(figure, f'{_d} mm')
-            results.append(SNR_eval)
-            del data
-            gc.collect()
-            print(f'Done with {dir}: {_d} mm')
-
-        print('finalizing figure...')
-        SNR_eval.finalize_figure(figure, title=f'{dir}_@{self.watt}W', smallest_size=self.x_min,
-                                 save_path=os.path.join(path_save_SNR, f'{str_voltage}kV'))
-
-
-
-
-
-
 
 
     @staticmethod
@@ -291,27 +240,108 @@ class SNRPrepperator:
     def filter_area_to_t(thick):
         return int(thick)
 
+    def constrains(self):
+        pass
 
 
 class ImageHolder:
-    def __init__(self, path: np.array, range: tuple = None):
-        self.path = path
+    def __init__(self, used_SCAP: bool = True, remove_lines:bool = True, range: tuple = None,
+                 load_px_map: bool = False, crop_area: tuple = None):
+        """
+        please note ref images need to be loaded as first image stack! Since the ratio between median intensity of the
+        stack and the outlier pixel rows is most significant at ref images.
+
+        """
+        self.used_SCAP = used_SCAP
+        self.remove_lines = remove_lines
+
         self.header = 2048
         self.shape = (1536, 1944)
+        if self.used_SCAP:
+            self.header = 0
+            self.shape = (1944, 1536)
         self.images = None
+
+        self.crop_area = crop_area
+        self.view = (0, 0), *self.crop_area
+
+        self.idxs = []
+
+        self.bad_px_map = load_px_map
         self.stack_range = range
+
         self.t_exp = None
 
-    def load_images(self):
+        self.modified_px_map = None
+        self.new_img_shape = None
+
+        if self.bad_px_map:
+            self.px_map = h.load_bad_pixel_map(crop=self.crop_area)
+            self.filterer = ImageSeriesPixelArtifactFilterer(bad_pixel_map=self.px_map)
+        else:
+            self.filterer = ImageSeriesPixelArtifactFilterer()
+
+
+    def load_stack(self, path):
         if not self.stack_range:
-            self.images = file.volume.Reader(self.path, mode='raw', shape=self.shape, header=self.header,
+            self.images = file.volume.Reader(path,
+                                             mode='raw',
+                                             shape=self.shape,
+                                             header=self.header,
+                                             crops=self.view,
                                              dtype='<u2').load_all()
         else:
-            self.images = file.volume.Reader(self.path, mode='raw', shape=self.shape, header=self.header,
+            self.images = file.volume.Reader(path,
+                                             mode='raw',
+                                             shape=self.shape,
+                                             header=self.header,
+                                             crops=self.view,
                                              dtype='<u2').load_range((self.stack_range[0], self.stack_range[-1]))
+        if self.remove_lines:
+            self.images = self.remove_detector_lines(self.images)
         return self.images
 
 
+    def remove_detector_lines(self, img_stack):
+        if len(self.idxs) < 1:
+            DEVIATION_THRESHOLD = 0.15
+
+            probe_img = img_stack[0]
+            line_posY = probe_img.shape[0]-100
+
+            if self.used_SCAP:
+                x0, x1 = 0, probe_img.shape[1]
+            else:
+                x0, x1 = 0, probe_img.shape[0]
+
+            line_plot = probe_img[line_posY-5:line_posY, x0:x1]
+            line_plot = np.nanmean(line_plot, axis=0)
+            line_median = np.nanmedian(line_plot)
+
+
+            for i in range(len(line_plot)):
+                px_val = line_plot[i]
+                ratio = abs(1 - (px_val/line_median))
+
+                if DEVIATION_THRESHOLD < ratio:
+                    self.idxs.append(i)
+
+        img_stack = np.delete(img_stack, self.idxs, axis=2)
+        if self.bad_px_map:
+            if self.px_map.shape[1] != img_stack.shape[2]: # only if the px_map was not updated yet, crop it to the new size
+                self.px_map = np.delete(self.px_map, self.idxs, axis=1)
+                self.filterer = ImageSeriesPixelArtifactFilterer(bad_pixel_map=self.px_map) # updating the filterer with new map
+        self.new_img_shape = img_stack.shape
+        return img_stack
+
+
+    def load_filterer(self):
+        if self.bad_px_map is True:
+            filterer = ImageSeriesPixelArtifactFilterer(bad_pixel_map=self.modified_px_map)
+            return filterer
+        else:
+            filterer = ImageSeriesPixelArtifactFilterer()
+            return filterer
 
 
     def get_t_exp(self):
@@ -336,6 +366,7 @@ def get_t_exp_old(path):
         break
     return t_exp
 
+
 def get_texp(path, kv):
     pfile = None
     for file in os.listdir(path):
@@ -356,7 +387,7 @@ def get_texp(path, kv):
     else:
         print('no file for exposure times were found. Pls make shure to put it in the same direction '
               'as the voltage folders and name it \'t_exp.txt\'')
-    return t_exp/1000
+    return t_exp / 1000
 
 
 def get_voltage(dir):
@@ -367,9 +398,3 @@ def get_voltage(dir):
     else:
         voltage = int(dir)
     return voltage
-
-
-def load_px_map():
-    path_to_map = r"\\132.187.193.8\junk\sgrischagin\BAD-PIXEL-bin1x1-scans-MetRIC_SCAP_IMGS.tif"
-    img = file.image.load(path_to_map)
-    return (file.volume.Reader(path_to_map, mode='auto', shape=(1, img.size[0], img.size[1])).load(0)).astype(int)

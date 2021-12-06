@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import helpers as h
 import matplotlib.pyplot as plt
 from cycler import cycler
 import matplotlib.gridspec as gridspec
@@ -73,37 +74,26 @@ class Plotter:
         fig.savefig(os.path.join(path_result, 'plots', f'MAP_ROI-{roi_l}-{roi_r}.pdf'), dpi=600)
 
 
-    def create_v_plot(self, path_result: str, object, Y_style: str = 'log', full: bool = False):
+    def create_v_plot(self, path_result: str, object, Y_style: str = 'log', detailed: bool = False):
         fig = plt.figure()
         ax = fig.add_subplot()
-        #ax2 = plt.twiny()
         roi_l = object['ROIs']['lb']
         roi_r = object['ROIs']['rb']
 
         sorted_curves = dict(sorted(object['d_curves'].items()))
         for d in sorted_curves:
-            _c_fit = sorted_curves[d]['fit']
-            _c_data = sorted_curves[d]['data']
-            _c_max_idx = sorted_curves[d]['max_idx']
+            _c_fit = sorted_curves[d]['full']
 
-            is_int = self.check_ds_nature(d)
-
-
-            if is_int and d in object['ds']:
-                ax.scatter(_c_fit[:, 1][_c_max_idx], _c_fit[:, 2][_c_max_idx], marker='x', alpha=1.0, s=15, c='grey')
-                ax.scatter(_c_fit[:, 1], _c_fit[:, 2], marker='o', alpha=0.7)
-                #ax.plot(_c_fit[:, 1], _c_fit[:, 2], linestyle='-', linewidth='2', alpha=1.0, label=f'{d} mm')
+            if h.is_int(d) and d in object['ds']:
+                _c_data = sorted_curves[d]['raw_data']
+                ax.plot(_c_fit[:, 1], _c_fit[:, 3], linestyle='-', linewidth='2', alpha=1.0, label=f'{d} mm')
                 ax.scatter(_c_data[:, 1], _c_data[:, 2], marker='o', alpha=1.0)
-
             else:
-                ax.scatter(_c_fit[:, 1][_c_max_idx], _c_fit[:, 2][_c_max_idx], marker='x', alpha=0.8, s=10, c='grey')
-                ax.plot(_c_data[:, 1], _c_data[:, 2], linestyle='-', linewidth=1, alpha=0.15, c='grey')
+                _c = 'grey'
+                ax.plot(_c_fit[:, 1], _c_fit[:, 3], linestyle='-', linewidth='1', alpha=0.3, c=_c)
+                #ax.scatter(_c_fit[:, 1], _c_fit[:, 2], marker='o', alpha=0.3, s=1, c=_c)
 
-
-        if full and object['intercept_found']:
-            tt = ax.axvline(x=object['T_min'], c='green', linestyle='--', alpha=0.5, linewidth=1)
-
-
+        ax.axvline(x=object['T_min'], color='k', linestyle='--', linewidth='1')
         _c_U0 = object['U0_curve']['fit']
         _c_opt = object['opt_curve']['fit']
         ax.plot(_c_U0[:, 0], _c_U0[:, 1], linewidth=1.5, label='$U_{0}$ curve')
@@ -242,13 +232,6 @@ class Plotter:
         d = d.replace('_', ' ')
         d = float(d)
         return d
-
-    @staticmethod
-    def check_ds_nature(var):
-        if var % 1.0 == 0.0:
-            return True
-        else:
-            return False
 
     @staticmethod
     def func_poly(x, a, b, c):
