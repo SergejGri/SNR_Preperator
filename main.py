@@ -1,21 +1,23 @@
-from SNR_Calculation.preperator import *
-from SNR_Calculation.map_db import *
+from snr_calc.preperator import *
+from snr_calc.map_db import *
 from Activator import Activator
 
 
 def prep_data(base_path):
-    image_shape = (1944, 1536)
-    header = 0
-    M = 19.1262
-    watt = 6
-
-    crop = (500, 1500), (900, 1147)
+    # full size
+    # crop = (500, 1500), (133, 1398)
+    crop = (500, 1500), (600, 1500)
+    M = 15.8429
+    watt = 5
+    ex_kVs = []
+    ex_ds = []
 
     _str = base_path.split('sgrischagin\\')[1]
-    path_to_result = os.path.join(r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR', _str, '20211126')
+    path_to_result = os.path.join(r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR', _str, '20211204_5W')
 
-    calc_snr = SNRPrepperator(path=base_path, img_shape=image_shape, header=header, magnification=M, crop_area=crop,
-                              path_result=path_to_result, watt=watt)
+    img_holder = ImageHolder(used_SCAP=True, remove_lines=True, load_px_map=False, crop_area=crop)
+    calc_snr = SNRPrepperator(path=base_path, magnification=M, path_result=path_to_result, watt=watt, ex_kvs=ex_kVs,
+                              ex_ds=ex_ds, image_holder=img_holder)
     calc_snr()
 
 
@@ -28,17 +30,16 @@ def main():
     #   2) saves the calculated spectra as a txt file + final plot in the same directory
     #   :param base_path: must be the directory of the kV folders
 
-    prep_data(base_path=r'\\132.187.193.8\junk\sgrischagin\2021-11-26-sergej_Alukeil_6W')
+    #prep_data(base_path=r'\\132.187.193.8\junk\sgrischagin\2021-11-29-sergej-AluKeil-5W')
 
 
 
-
-    #snr_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-11-23-sergej_Al-StepWedge_6W\20211126\2021-11-26_SNR'
-    #T_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-11-23-sergej_Al-StepWedge_6W\20211126\2021-11-26_T'
+    snr_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-11-29-sergej-AluKeil-5W\20211204_5W\2021-12-3_SNR'
+    T_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-11-29-sergej-AluKeil-5W\20211204_5W\2021-12-3_T'
 
     # TODO: implement excluding kvs as kv_ex
-    #acti = Activator(snr_files=snr_data, T_files=T_data, U0=100, snr_user=1.0, ssize=(150, 250), kv_ex=None)
-    #acti(create_plot=True, detailed=False)
+    acti = Activator(snr_files=snr_data, T_files=T_data, U0=120, snr_user=1.0, ssize=(30), kv_ex=[140], ds_ex=[28, 32])
+    acti(create_plot=True, detailed=False)
 
 
 if __name__ == '__main__':

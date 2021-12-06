@@ -9,9 +9,9 @@ THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND ANY EXPRE
 '''
 # Developed at the Lehrstuhl fuer Roentgenmikroskopie/Universitaet Wuerzburg, Josef-Martin-Weg 63, 97074 Wuerzburg, Germany
 
-from externe_files.file.image_formats import *
-from externe_files.file.info import *
-from externe_files.image.cropping import *
+from ext.file.image_formats import *
+from ext.file.info import *
+from ext.image.cropping import *
 
 #from file.image_formats import *
 #from file.info import *

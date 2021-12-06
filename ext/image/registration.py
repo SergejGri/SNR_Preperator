@@ -9,8 +9,8 @@ THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND ANY EXPRE
 '''
 # Developed at the Lehrstuhl fuer Roentgenmikroskopie/Universitaet Wuerzburg, Josef-Martin-Weg 63, 97074 Wuerzburg, Germany
 import numpy as np
-import externe_files.common.opencl as cl
-from externe_files.image.resize import bin_down_image
+import ext.common.opencl as cl
+from ext.image.resize import bin_down_image
 
 # ==== image registration in OpenCl ====
 class ImageRegisterTool():
