@@ -7,12 +7,11 @@ from numpy.polynomial import polynomial as P
 
 
 class SNRMapGenerator:
-    def __init__(self, scanner, d: list, kv_filter: list = None):
+    def __init__(self, scanner, kv_filter: list = None):
         """
         :param path_snr:
         :param path_T:
         :param path_fin:
-        :param d:
         :param kv_filter:
         """
         self.scanner = scanner
@@ -26,7 +25,7 @@ class SNRMapGenerator:
         self.T_min = None
         self.curves = {}
         self.ROI = {}
-        self.MAP_object = {'ds': self.ds}
+        self.MAP_object = {'ds': self.ds, 'kvs': self.kVs}
         self.U0_curve = None
         self.d_opt = None
         self.opt_curve = None
@@ -62,12 +61,8 @@ class SNRMapGenerator:
             self.curves[float(d)]['full'] = full_curve
 
         self.MAP_object['d_curves'] = self.curves
+        self.MAP_object['ds'] = self.ds
         self.write_curve_files(self.curves)
-
-
-
-
-
 
         return self.MAP_object
 
@@ -174,11 +169,14 @@ class SNRMapGenerator:
 
 
     def create_kv_grid(self, d):
+        """
+        the kv_
+        """
+
+        kv_step_width = 0.5
+
         _c = self.curves[float(f'{d}')]['raw_data']
         kV = _c[:, 0]
-        T = _c[:, 1]
-        SNR = _c[:, 2]
-
         grid = np.empty(shape=3)
 
         for i in range(len(self.kVs) - 1):
@@ -186,8 +184,9 @@ class SNRMapGenerator:
             # TODO: change the selection of kvs depending on the curve
             kv0 = int(self.kVs[i])
             kv1 = int(self.kVs[i + 1])
-            n = abs(int(kv1) - int(kv0) + 1)
 
+            n = abs( (int(kv1) - int(kv0)) / kv_step_width + 1)
+            n = int(n)
             row0 = _c[kV == kv0]
             row1 = _c[kV == kv1]
 
@@ -200,14 +199,10 @@ class SNRMapGenerator:
             kvs_vals = np.hstack((kvs_vals, range_kv_points))
             grid = np.vstack((grid, kvs_vals))
 
-        # fine tune new curve
+        # fine tune new curve -> find duplicates and delete them
+
         grid = grid[1:]
-        del_rows = []
-        for j in range(len(grid[:, 0]) - 1):
-            if grid[j, 0] == grid[j + 1, 0]:
-                del_rows.append(j)
-        del_rows = np.asarray(del_rows)
-        grid = np.delete(grid, [del_rows], axis=0)
+        grid = np.unique(grid, axis=0)
 
         new_x_axis = grid[:, 1]
         semi_fit_SNR = grid[:, 2]
@@ -216,12 +211,13 @@ class SNRMapGenerator:
         f = np.poly1d(fit_params)
         fit_new_axis = f(new_x_axis)
 
-        kv_steps_full = np.arange(kV[0], kV[-1]+1, step=1)
+        kv_steps_full = np.arange(kV[0], kV[-1]+1, step=kv_step_width)
+        if 180.0 < np.max(kv_steps_full):
+            val, idx = h.find_nearest(kv_steps_full, 180)
+            kv_steps_full = kv_steps_full[:idx+1]
         kv_grid = self.merge_data(kv_steps_full, new_x_axis, semi_fit_SNR, fit_new_axis)
 
         return kv_grid
-
-
 
 
     def create_raw_grid(self):
@@ -244,12 +240,9 @@ class SNRMapGenerator:
 
                 self.curves[d] = {}
                 self.curves[d]['raw_data'] = self.merge_data(c1[:, 0], T, snr)
-                #temp_curves[d] = {}
-                #temp_curves[d]['raw_data'] = self.merge_data(c1[:, 0], T, snr)
 
         self.curves = dict(sorted(self.curves.items()))
-        #self.MAP_object['d_curves'].update(temp_curves)
-        #self.MAP_object['d_curves'] = dict(sorted(self.MAP_object['d_curves'].items()))
+
 
 
 
@@ -267,7 +260,11 @@ class SNRMapGenerator:
     def data_points_interpolation(self, sub_ds: list, curve1: np.asarray, curve2: np.array):
         """
         takes a list of thicknesses, two curves and calculates equidistant points between measured data points. I call
-        these interpolated data points 'virtual' points
+        these interpolated data points 'virtual' points. This is necessary to get a voltage values distribution ALONG
+        the SNR curve:
+        !!!
+        np.linspace(kv[0], kv[-1], num_of_points) != np.linspace(T[0], T[-1], num_of_points)
+        !!!
         """
 
         raw_virtual_points = {}
@@ -283,7 +280,8 @@ class SNRMapGenerator:
             y = [snr1[j], snr2[j]]
 
             coeff_t, coeff_m = P.polyfit(x, y, 1)
-            xvals = np.linspace(T1[j], T2[j], len(sub_ds))
+            xvals = np.linspace(T1[j], T2[j], len(sub_ds)+2)[1:-1] # +2 because cutting off the first and last item
+
             yvals = h.linear_f(x=xvals, m=coeff_m, t=coeff_t)
 
             X.append(xvals)

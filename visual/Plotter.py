@@ -11,6 +11,9 @@ class Plotter:
     def __init__(self):
         self.ft_sz_size = 10
         self.ft_sz_title = 10
+        self.plt_layout = 'tight'
+
+
 
 
     def create_plot_v1(self, path_result: str, act_object, ds: list, Y_style: str = 'log'):
@@ -74,30 +77,35 @@ class Plotter:
         fig.savefig(os.path.join(path_result, 'plots', f'MAP_ROI-{roi_l}-{roi_r}.pdf'), dpi=600)
 
 
-    def create_v_plot(self, path_result: str, object, Y_style: str = 'log', detailed: bool = False):
+    def create_MAP_plot(self, path_result: str, object, Y_style: str = 'log', detailed: bool = False):
         fig = plt.figure()
         ax = fig.add_subplot()
         roi_l = object['ROIs']['lb']
         roi_r = object['ROIs']['rb']
 
-        sorted_curves = dict(sorted(object['d_curves'].items()))
-        for d in sorted_curves:
-            _c_fit = sorted_curves[d]['full']
+        for d in object['d_curves']:
+            _c_fit = object['d_curves'][d]['full']
 
             if h.is_int(d) and d in object['ds']:
-                _c_data = sorted_curves[d]['raw_data']
-                ax.plot(_c_fit[:, 1], _c_fit[:, 3], linestyle='-', linewidth='2', alpha=1.0, label=f'{d} mm')
-                ax.scatter(_c_data[:, 1], _c_data[:, 2], marker='o', alpha=1.0)
+                _c_data = object['d_curves'][d]['raw_data']
+                _a = 1.0
+                ax.plot(_c_fit[:, 1], _c_fit[:, 3], linestyle='-', linewidth='2', alpha=_a, label=f'{d} mm')
+                ax.scatter(_c_data[:, 1], _c_data[:, 2], marker='o', alpha=_a)
             else:
                 _c = 'grey'
-                ax.plot(_c_fit[:, 1], _c_fit[:, 3], linestyle='-', linewidth='1', alpha=0.3, c=_c)
-                #ax.scatter(_c_fit[:, 1], _c_fit[:, 2], marker='o', alpha=0.3, s=1, c=_c)
+                _a = 0.2
+                ax.plot(_c_fit[:, 1], _c_fit[:, 3], linestyle='-', linewidth='1', alpha=_a, c=_c)
+                #ax.scatter(_c_fit[:, 1], _c_fit[:, 2], marker='o', alpha=_a, s=1, c=_c)
+
 
         ax.axvline(x=object['T_min'], color='k', linestyle='--', linewidth='1')
-        _c_U0 = object['U0_curve']['fit']
-        _c_opt = object['opt_curve']['fit']
+        _c_U0 = object['U0_curve']['raw_data']
+        #_c_opt = object['opt_curve']['fit']
+
+        #ax.scatter(object['INTERCEPT_X'], object['INTERCEPT_Y'], marker='x', s=15, c='black')
+
         ax.plot(_c_U0[:, 0], _c_U0[:, 1], linewidth=1.5, label='$U_{0}$ curve')
-        ax.plot(_c_opt[:, 0], _c_opt[:, 1],linewidth=1.5, label='$U_{opt}$ curve', c='red')
+        #ax.plot(_c_opt[:, 0], _c_opt[:, 1],linewidth=1.5, label='$U_{opt}$ curve', c='red')
 
         ax.legend(loc="upper left")
         ax.set_title(f'SNR MAP @ {roi_l}-{roi_r} $\mu m$')
@@ -105,10 +113,47 @@ class Plotter:
         ax.set_xlabel('Transmission a.u.')
         ax.set_ylabel('SNR/s')
         sv_path = os.path.join(path_result, 'plots')
+        plt.tight_layout()
         if not os.path.isdir(sv_path):
             os.makedirs(sv_path)
         plt.show()
         fig.savefig(os.path.join(path_result, 'plots', f'MAP_ROI-{roi_l}-{roi_r}.pdf'), dpi=600)
+
+
+
+    def create_T_kv_plot(self, path_result: str, object, Y_style: str = 'log', detailed: bool = False):
+        roi_l = object['ROIs']['lb']
+        roi_r = object['ROIs']['rb']
+
+        fig = plt.figure()
+        ax = fig.add_subplot()
+
+        for d in object['d_curves']:
+
+            _c_fit = object['d_curves'][d]['full']
+            _c_data = object['d_curves'][d]['raw_data']
+
+            if h.is_int(d) and d in object['ds']:
+                _a = 1.0
+                ax.plot(_c_fit[:, 0], _c_fit[:, 1], linestyle='-', linewidth='2', alpha=_a, label=f'{d} mm')
+                ax.scatter(_c_data[:, 0], _c_data[:, 1], marker='o', alpha=_a)
+            else:
+                _c = 'grey'
+                _a = 0.2
+                ax.plot(_c_fit[:, 0], _c_fit[:, 1], linestyle='-', linewidth='1', alpha=_a, c=_c)
+
+        #ax.axvline(x=object['U0_val'])
+        ax.legend(loc='best')
+        ax.set_yscale(Y_style)
+        ax.set_xlabel('Voltage $[10^{3} V]$')
+        ax.set_ylabel('Transmission a.u.')
+        sv_path = os.path.join(path_result, 'plots')
+        if not os.path.isdir(sv_path):
+            os.makedirs(sv_path)
+        plt.tight_layout()
+        plt.show()
+        fig.savefig(os.path.join(path_result, 'plots', f'T_kV-{roi_l}-{roi_r}.pdf'), dpi=600)
+
 
 
     def fit_me_for_plot(self, _c):
