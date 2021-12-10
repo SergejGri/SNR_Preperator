@@ -4,20 +4,19 @@ from Activator import Activator
 
 
 def prep_data(base_path):
-    # full size
-    # crop = (500, 1500), (133, 1398)
-    crop = (500, 1500), (600, 1500)
+    # adjusted (without the outliner far right bottom)
+    crop = (500, 1500), (595, 1395)
     M = 15.8429
     watt = 5
     ex_kVs = []
-    ex_ds = []
+    ex_ds = [32]
 
     _str = base_path.split('sgrischagin\\')[1]
-    path_to_result = os.path.join(r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR', _str, '20211204_5W')
+    path_to_result = os.path.join(r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR', _str, '20211206_5W')
 
-    img_holder = ImageHolder(used_SCAP=True, remove_lines=True, load_px_map=False, crop_area=crop)
+    img_loader = ImageHolder(used_SCAP=True, remove_lines=True, load_px_map=True, crop_area=crop)
     calc_snr = SNRPrepperator(path=base_path, magnification=M, path_result=path_to_result, watt=watt, ex_kvs=ex_kVs,
-                              ex_ds=ex_ds, image_holder=img_holder)
+                              ex_ds=ex_ds, image_holder=img_loader)
     calc_snr()
 
 
@@ -38,7 +37,7 @@ def main():
     T_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-11-29-sergej-AluKeil-5W\20211204_5W\2021-12-3_T'
 
     # TODO: implement excluding kvs as kv_ex
-    acti = Activator(snr_files=snr_data, T_files=T_data, U0=120, snr_user=1.0, ssize=(30), kv_ex=[140], ds_ex=[28, 32])
+    acti = Activator(snr_files=snr_data, T_files=T_data, U0=110, snr_user=1.0, ssize=(30), kv_ex=[140], ds_ex=[32])
     acti(create_plot=True, detailed=False)
 
 

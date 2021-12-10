@@ -105,7 +105,6 @@ def extract(what: str, dfile: str):
             return int(d_str)
 
 
-
 def is_list(expression):
     if isinstance(expression, list):
         return True
@@ -120,8 +119,10 @@ def load_bad_pixel_map(crop):
     print(f'\n{path_to_map} loaded as bad pixel map. \n')
     return bad_pixel_map
 
+
 def linear_f(x, m, t):
     return m*x + t
+
 
 def poly_2(x, a, b, c):
     return a * x ** 2 + b * x + c
@@ -135,16 +136,113 @@ def poly_fit(var_x, var_y, steps):
     return x, y
 
 
-def test_plot():
-    x = np.array([0.4, 0.45, 0.50, 0.55, 0.6, 0.63, 0.65, 0.7, 0.73, 0.75])
-    y = np.array([1.2, 1.26, 1.3, 1.32, 1.325, 1.324, 1.32, 1.28, 1.25, 1.21])
-    z = np.polyfit(x, y, 2)
-    p = np.poly1d(z)
+def find_max(array):
+    if not isinstance(array, np.ndarray):
+        array = np.asarray(array)
+    idx = array.argmax()
+    return array[idx], idx
 
-    xp = xp = np.linspace(x[0], x[-1], 1000)
-    plt.scatter(x, y)
-    plt.plot(x, y)
-    plt.plot(xp, p(xp), label='fit')
-    plt.scatter(0.47, p(0.47), c='red')
-    plt.legend()
-    plt.show()
+
+def find_min(array):
+    if not isinstance(array, np.ndarray):
+        array = np.asarray(array)
+    idx = array.argmin()
+    return array[idx], idx
+
+
+def find_nearest(array, value):
+    if not isinstance(array, np.ndarray):
+        array = np.asarray(array)
+    idx = (np.abs(array - value)).argmin()
+    return array[idx], idx
+
+
+def find_roots(x, y):
+    s = np.abs(np.diff(np.sign(y))).astype(bool)
+    return x[:-1][s] + np.diff(x)[s] / (np.abs(y[1:][s] / y[:-1][s]) + 1)
+
+
+def line_intersection(line1, line2):
+    L1x1 = 0.0
+    L1x2 = 180.0
+    L1y1 = 0
+    L1y2 = 0
+
+    L2x1 = 0
+    L2x2 = 0
+    L2y1 = 0
+    L2y2 = 1
+
+    A = [L1x1, L1y1]
+    B = [L1x2, L1y2]
+    C = [L2x1, L2y1]
+    D = [L2x2, L2y2]
+
+    xdiff = (line1[0][0] - line1[1][0], line2[0][0] - line2[1][0])
+    ydiff = (line1[0][1] - line1[1][1], line2[0][1] - line2[1][1])
+
+    def det(a, b):
+        return a[0] * b[1] - a[1] * b[0]
+
+    div = det(xdiff, ydiff)
+    if div == 0:
+        raise Exception('lines do not intersect')
+
+    d = (det(*line1), det(*line2))
+    x = det(d, xdiff) / div
+    y = det(d, ydiff) / div
+    return x, y
+
+
+def remove_duplicates(arr):
+    del_rows = []
+    for j in range(len(arr[:, 0]) - 1):
+        if arr[j, 0] == arr[j + 1, 0]:
+            del_rows.append(j)
+    del_rows = np.asarray(del_rows)
+    arr = np.delete(arr, [del_rows], axis=0)
+    return arr
+
+
+def find_neighbours(map, kV):
+    # find first element in map where arg. >= self.U0, which is the right border of the searched interval
+    # the nearest left entry is the left border between which the interpolation will take place
+    d = None
+    for d in map['d_curves']:
+        break
+    if d is not None:
+        _c_kV = map['d_curves'][d]['raw_data'][:, 0].tolist()
+
+        num = next(i[0] for i in enumerate(_c_kV) if i[1] > kV)
+        left_nbr = _c_kV[num - 1]
+        right_nbr = _c_kV[num]
+        dist = kV - left_nbr
+
+        return abs(int(dist)), int(left_nbr), int(right_nbr), (int(right_nbr) - int(left_nbr))
+    else:
+        print('Could not estimate \'neighbours\'.')
+
+
+def prep_curve(x, y):
+    xd = np.diff(x)
+    yd = np.diff(y)
+    dist = np.sqrt(xd ** 2 + yd ** 2)
+    u = np.cumsum(dist)
+    u = np.hstack([[0], u])
+
+    t = np.linspace(0, u.max(), 141)
+    xn = np.interp(t, u, x)
+    yn = np.interp(t, u, y)
+    return xn, yn
+
+
+#def d_curve_T_intercept(self, curve):
+#    idx = None
+#    deltas = [0.0, 0.0000001, 0.000001]
+#    for delta in deltas:
+#        nearest_val, idx = h.find_nearest(curve[:, 0], self.T_min + delta)
+#        if idx is not None:
+#            self.intercept_found = True
+#            break
+#    self.intercept['x'] = self.T_min
+#    self.intercept['y'] = curve[:, 1][idx]
