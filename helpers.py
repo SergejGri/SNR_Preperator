@@ -157,6 +157,35 @@ def find_nearest(array, value):
     return array[idx], idx
 
 
+def merge_v1D(*cols):
+    arr = np.vstack(cols).T
+    arr.astype(float)
+    return arr
+
+
+def extract_angle(num_of_projections, img_name, num_len):
+    """
+    :param num_len: num of integers in the naming convention of the image e.g. img_0017
+    """
+
+    img_num_str = re.findall(r'[0-9]{4,10}', img_name)[0]
+
+    num = None
+    if re.match(r'[0]+', img_num_str):
+        num = 0
+    else:
+        img_num_str = img_num_str.lstrip('0')
+        num = int(img_num_str)
+
+    angle = (360/num_of_projections) * num
+
+    return angle
+
+def strip_chars(char, num):
+    pass
+
+
+
 def find_roots(x, y):
     s = np.abs(np.diff(np.sign(y))).astype(bool)
     return x[:-1][s] + np.diff(x)[s] / (np.abs(y[1:][s] / y[:-1][s]) + 1)

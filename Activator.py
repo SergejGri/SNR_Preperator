@@ -1,6 +1,8 @@
 import os
 import gc
 import csv
+import sys
+
 import numpy as np
 from scipy import interpolate
 from scipy.ndimage import median_filter
@@ -10,45 +12,39 @@ from ext import file
 from visual.Plotter import Plotter as PLT
 from visual.Plotter import TerminalColor as PCOL
 from snr_calc.map_generator import SNRMapGenerator
+from snr_calc.preperator import ImageLoader
+from snr_calc.preperator import calc_T
 import helpers as h
 
 
-def fast_CT():
-    img_shape = (1536, 1944)
-    header = 2048
-    px_map = h.load_bad_pixel_map()
+def fast_CT(num_proj):
+    crop = (500, 1500), (595, 1395)
 
-    imgs = r'\\132.187.193.8\junk\sgrischagin\2021-10-04_Sergej_Res-phantom_135kV_1mean_texp195_15proj-per-angle\test_fast_CT'
-    darks = r'\\132.187.193.8\junk\sgrischagin\2021-10-04_Sergej_Res-phantom_135kV_1mean_texp195_15proj-per-angle\darks'
-    refs = r'\\132.187.193.8\junk\sgrischagin\2021-10-04_Sergej_Res-phantom_135kV_1mean_texp195_15proj-per-angle\refs'
+    p_imgs = r'\\132.187.193.8\junk\sgrischagin\2021-11-30-sergej-CT-halbesPhantom-5W-M5p3\fast_CT'
+    p_darks = r'\\132.187.193.8\junk\sgrischagin\2021-11-30-sergej-CT-halbesPhantom-5W-M5p3\darks'
+    p_refs = r'\\132.187.193.8\junk\sgrischagin\2021-11-30-sergej-CT-halbesPhantom-5W-M5p3\refs'
 
-    darks = file.volume.Reader(darks, mode='raw', shape=img_shape, header=header, dtype='<u2').load_all()
-    refs = file.volume.Reader(refs, mode='raw', shape=img_shape, header=header, dtype='<u2').load_all()
-    darks_avg = np.nanmean(darks, axis=0)
-    refs_avg = np.nanmean(refs, axis=0)
+    img_holder = ImageLoader(used_SCAP=False, remove_lines=True, load_px_map=False)
+    data = img_holder.load_stack(path=p_imgs)
+    darks = img_holder.load_stack(path=p_darks)
+    refs = img_holder.load_stack(path=p_refs)
 
-    list_Ts = []
+    list_T = []
     list_angles = []
-    data = file.volume.Reader(imgs, mode='raw', shape=img_shape, header=header, dtype='<u2').load_all()
-    data_avg = np.nanmean(data, axis=0).astype(data.dtype, copy=False)
+    all_imgs = [f for f in os.listdir(p_imgs) if os.path.isfile(os.path.join(p_imgs, f))]
+    for i in range(data.shape[0]):
+        theta = h.extract_angle(num_of_projections=num_proj, img_name=all_imgs[i], num_len=4)
 
-    medfilt_image = median_filter(data_avg, 5, mode='nearest')[px_map]
-    for k in range(len(data)):
-        data[k][px_map] = medfilt_image
+        T = calc_T(data=data, refs=refs, darks=darks)
+        list_T.append(T)
+        list_angles.append(theta)
 
-    for i in range(len(data)):
-        if darks is None and refs is None:
-            T = data[np.where(data > 0)].min()
-        else:
-            img = (data[i] - darks_avg) / (refs_avg - darks_avg)
-            T = img[np.where(img > 0)].min()
-        list_Ts.append(T)
-        list_angles.append(i)
-    a = np.asarray(list_Ts)
-    b = np.asarray(list_angles)
-    del img, data, refs, darks
+    T = np.asarray(list_T)
+    theta = np.asarray(list_angles)
+    del data, refs, darks
     gc.collect()
-    CT_data = np.vstack([a, b])
+
+    CT_data = h.merge_v1D(theta, T)
     return CT_data
 
 
@@ -139,7 +135,7 @@ class Activator:
         else:
             print(f'The adjust Voltage is out of range! U0 = {U0} \n'
                   + PCOL.BOLD + '...exit...' + PCOL.END)
-            self.stop_exe = True
+            sys.exit()
 
         self.kV_interpolation = False
 
@@ -161,6 +157,7 @@ class Activator:
         # 1) fast_CT
         # 2) extract T_min
         # 3)
+        self.fast_CT_data = fast_CT(num_proj=1500)
         self.fast_CT_data = [[0.513, 0.157, 0.319, 0.419, 0.351, 0.359, 0.473], [0.0, 5.0, 7.0, 10.0, 15.0, 20.0, 25.0]]
         self.T_min, _ = h.find_min(self.fast_CT_data[0])
 
@@ -184,7 +181,6 @@ class Activator:
             _plt.create_MAP_plot(path_result=self.scanner.path_fin, object=self.map, detailed=detailed)
 
         self.create_lookup_table()
-        self.translate_T_to_d()
         # self.calc_t_exp()
 
     def get_min_T(self):
@@ -221,14 +217,14 @@ class Activator:
         return np.vstack((X, Y)).T
 
 
-    def filter_relevant_curves(self):
+    def filter_relevant_curves(self, T_val):
         rel_curves = {}
         for d in self.map['d_curves']:
 
             _c_T = self.map['d_curves'][d]['full'][:, 1]
             _c_SNR = self.map['d_curves'][d]['full'][:, 3]
 
-            if _c_T[0] <= self.T_min <= _c_T[-1]:
+            if _c_T[0] <= T_val <= _c_T[-1]:
                 rel_curves[d] = self.map['d_curves'][d]
         return rel_curves
 
@@ -278,7 +274,7 @@ class Activator:
         _d = None
         idx = None
 
-        rel_curves = self.filter_relevant_curves()
+        rel_curves = self.filter_relevant_curves(T_val=T_val)
 
         for d in rel_curves:
             _c = rel_curves[d]['full']
@@ -300,47 +296,6 @@ class Activator:
         return iT, isnr, _d
 
 
-    def create_lookup_table(self):
-        for d in self.map['d_curves']:
-            _c = self.map['d_curves'][d]['full']
-            kv = _c[:, 0]
-            T = _c[:, 1]
-            snr = _c[:, 3]
-
-        self.translate_T_to_d()
-
-
-    def translate_T_to_d(self):
-        # resolution
-        # Ubest
-
-        transmission = self.fast_CT_data[0]
-        angles = self.fast_CT_data[1]
-
-        for theta in angles:
-            # 1) find intercept between T(theta) and Ubest
-            _tmp_d = self.f
-
-        print('test')
-
-
-    def calc_t_exp(self, d):
-        # 1) picke d_opt und extrahiere SNR Wert bei U_opt
-        # 2)
-        for curve_d in self.map['d_curves']:
-            if curve_d == d:
-                _c = self.map['d_curves'][curve_d]['full']
-                kv = _c[:, 0]
-                snr = _c[:, 3]
-
-                opt_idx = h.find_nearest(kv, self.U_opt)
-
-                var_snr = _c[:, 3][opt_idx]
-
-        t_exp = 1
-        return t_exp
-
-
     def create_U0_curve(self, U0):
         self.map['U0_curve'] = {}
         T, SNR = self.mono_kv_curve(U_val=U0)
@@ -359,6 +314,60 @@ class Activator:
         T, SNR = self.mono_kv_curve(U_val=kv_opt)
         self.map['Ubest_curve']['Ubest_val'] = kv_opt
         self.map['Ubest_curve']['raw_data'] = self.Generator.merge_data(T, SNR)
+
+
+
+    def create_lookup_table(self):
+
+        iT, isnr, id, theta = self.translate_T_to_d()
+
+        t_exp = self.calc_t_exp(snr_arr=isnr)
+
+        plt.plot(theta, t_exp)
+        plt.show()
+
+        print('test')
+
+
+    def smooth_curve(self, arr_1, arr_2):
+        pass
+
+
+    def translate_T_to_d(self):
+        Ubest = self.map['Ubest_curve']['Ubest_val']
+        transmission = self.fast_CT_data[0]
+        angles = self.fast_CT_data[1]
+
+        list_iT = []
+        list_isnr = []
+        list_id = []
+        list_theta = []
+
+        for i in range(len(angles)):
+            # 1) find intercept between T(theta) and Ubest
+            theta = angles[i]
+            T = transmission[i]
+            iT, isnr, id = self.find_intercept(kv_val=Ubest, T_val=T)
+            list_iT.append(iT)
+            list_theta.append(theta)
+            list_isnr.append(isnr)
+            list_id.append(id)
+
+        return np.asarray(list_iT), np.asarray(list_isnr), np.asarray(list_id), np.asarray(list_theta)
+
+
+
+    def calc_t_exp(self, snr_arr):
+        t_exp = []
+        for i in range(snr_arr.shape[0]):
+            tmp_t = snr_arr[i] / self.snr_user
+            t_exp.append(tmp_t)
+        return np.asarray(t_exp)
+
+
+
+
+
 
 
     def printer(self):

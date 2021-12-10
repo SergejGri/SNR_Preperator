@@ -90,8 +90,8 @@ class SNRPrepperator:
     def __call__(self):
         self.calc_2D_snr(properties=self.get_properties())
 
-    def calc_2D_snr(self, properties):
 
+    def calc_2D_snr(self, properties):
         for dir in properties:
             voltage = h.extract(what='kv', dfile=dir)
 
@@ -124,7 +124,7 @@ class SNRPrepperator:
                 imgs_data = self.img_holder.load_stack(path=p_imgs)
 
                 if not self.only_snr:
-                    T = self.calc_T(imgs_data, imgs_refs, imgs_darks)
+                    T = calc_T(imgs_data, imgs_refs, imgs_darks)
                     self.write_T_data(psave_T, _d, T, voltage)
 
                 SNR_eval, figure = self.evaluate_snr(snr_obj=SNR_eval, path_save_SNR=psave_SNR, fig=figure,
@@ -144,6 +144,7 @@ class SNRPrepperator:
             SNR_eval.finalize_figure(figure, title=f'{dir} @{self.watt}W',
                                      save_path=os.path.join(psave_SNR, f'{voltage}kV'))
 
+
     def get_properties(self):
         directories = {}
 
@@ -158,6 +159,7 @@ class SNRPrepperator:
                     dict_sdir = {'ds': subdirs, 't_exp': t_exp}
                     directories[dirr] = dict_sdir
         return directories
+
 
     def get_subdirs(self, dir):
         subdirs = []
@@ -193,26 +195,6 @@ class SNRPrepperator:
             f_l.write('{};{}\n'.format(voltage, T))
             f_l.close()
 
-    def calc_T(self, data, refs, darks):
-        darks_avg = np.nanmean(darks, axis=0)
-        refs_avg = np.nanmean(refs, axis=0)
-        data_avg = np.nanmean(data, axis=0)
-        img = (data_avg - darks_avg) / (refs_avg - darks_avg)
-
-        transmission_min = 0
-        h = 20
-        w = 20
-        median = []
-        for i in range(0, img.shape[0]-h, h):
-            for j in range(0, img.shape[1]-w, w):
-                rect = img[i:i+h, j:j+w]
-                medn = np.median(rect)
-                median.append(medn)
-                transmission_min = min(median)
-                # plt.imshow(rect, interpolation='nearest')
-        del img
-        gc.collect()
-        return transmission_min
 
     def evaluate_snr(self, snr_obj, path_save_SNR, fig, data, refs, darks, _d, kV, t_exp, filterer):
 
@@ -244,9 +226,32 @@ class SNRPrepperator:
         pass
 
 
-class ImageHolder:
-    def __init__(self, used_SCAP: bool = True, remove_lines:bool = True, range: tuple = None,
-                 load_px_map: bool = False, crop_area: tuple = None):
+def calc_T(data, refs, darks):
+    darks_avg = np.nanmean(darks, axis=0)
+    refs_avg = np.nanmean(refs, axis=0)
+    data_avg = np.nanmean(data, axis=0)
+    img = (data_avg - darks_avg) / (refs_avg - darks_avg)
+
+    transmission_min = 0
+    h = 20
+    w = 20
+    median = []
+    for i in range(0, img.shape[0]-h, h):
+        for j in range(0, img.shape[1]-w, w):
+            rect = img[i:i+h, j:j+w]
+            medn = np.median(rect)
+            median.append(medn)
+            transmission_min = min(median)
+    del img
+    gc.collect()
+    return transmission_min
+
+
+
+
+class ImageLoader:
+    def __init__(self, used_SCAP: bool = True, remove_lines:bool = True, load_px_map: bool = False, range: tuple = None,
+                 crop_area: tuple = None):
         """
         please note ref images need to be loaded as first image stack! Since the ratio between median intensity of the
         stack and the outlier pixel rows is most significant at ref images.
@@ -262,8 +267,11 @@ class ImageHolder:
             self.shape = (1944, 1536)
         self.images = None
 
-        self.crop_area = crop_area
-        self.view = (0, 0), *self.crop_area
+        if crop_area is not None:
+            self.crop_area = crop_area
+            self.view = (0, 0), *self.crop_area
+        else:
+            self.view = (None, None, None)
 
         self.idxs = []
 
