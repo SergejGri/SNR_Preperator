@@ -5,47 +5,13 @@ import sys
 
 import numpy as np
 from scipy import interpolate
-from scipy.ndimage import median_filter
 from matplotlib import pyplot as plt
 
-from ext import file
+from snr_calc.ct_evaluation import CT
 from visual.Plotter import Plotter as PLT
 from visual.Plotter import TerminalColor as PCOL
 from snr_calc.map_generator import SNRMapGenerator
-from snr_calc.preperator import ImageLoader
-from snr_calc.preperator import calc_T
-import helpers as h
-
-
-def fast_CT(num_proj):
-    crop = (500, 1500), (595, 1395)
-
-    p_imgs = r'\\132.187.193.8\junk\sgrischagin\2021-11-30-sergej-CT-halbesPhantom-5W-M5p3\fast_CT'
-    p_darks = r'\\132.187.193.8\junk\sgrischagin\2021-11-30-sergej-CT-halbesPhantom-5W-M5p3\darks'
-    p_refs = r'\\132.187.193.8\junk\sgrischagin\2021-11-30-sergej-CT-halbesPhantom-5W-M5p3\refs'
-
-    img_holder = ImageLoader(used_SCAP=False, remove_lines=True, load_px_map=False)
-    data = img_holder.load_stack(path=p_imgs)
-    darks = img_holder.load_stack(path=p_darks)
-    refs = img_holder.load_stack(path=p_refs)
-
-    list_T = []
-    list_angles = []
-    all_imgs = [f for f in os.listdir(p_imgs) if os.path.isfile(os.path.join(p_imgs, f))]
-    for i in range(data.shape[0]):
-        theta = h.extract_angle(num_of_projections=num_proj, img_name=all_imgs[i], num_len=4)
-
-        T = calc_T(data=data, refs=refs, darks=darks)
-        list_T.append(T)
-        list_angles.append(theta)
-
-    T = np.asarray(list_T)
-    theta = np.asarray(list_angles)
-    del data, refs, darks
-    gc.collect()
-
-    CT_data = h.merge_v1D(theta, T)
-    return CT_data
+import helpers as hlp
 
 
 class Scanner:
@@ -66,7 +32,7 @@ class Scanner:
             _subdir = os.path.join(self.p_SNR_files, _dir)
             for file in os.listdir(_subdir):
                 if file.endswith('.txt'):
-                    d = h.extract(what='d', dfile=file)
+                    d = hlp.extract(what='d', dfile=file)
                     if d in self.ds_ex:
                         pass
                     else:
@@ -78,7 +44,7 @@ class Scanner:
         loc_ds = []
         for file in os.listdir(self.p_T_files):
             if file.endswith('.csv'):
-                d = h.extract(what='d', dfile=file)
+                d = hlp.extract(what='d', dfile=file)
                 if d in self.ds_ex:
                     pass
                 else:
@@ -114,7 +80,8 @@ class Activator:
     def __init__(self, snr_files: str, T_files: str, U0: int, snr_user: float, kv_ex: list = None, ds_ex: list = None,
                  ssize=None, vir_curve_step: float = None, create_plot: bool = False):
 
-        self.fast_CT_data = None
+        self.fCT_data = None
+        self.CT_data = None
         self.T_min = None
 
         self.kv_ex = kv_ex
@@ -151,16 +118,18 @@ class Activator:
 
         self.Generator = SNRMapGenerator(scanner=self.scanner, kv_filter=kv_ex)
 
+
     def __call__(self, create_plot: bool = True, detailed: bool = False):
-        # self.fast_CT_data = fast_CT()
         # 0) find U_best
         # 1) fast_CT
         # 2) extract T_min
         # 3)
-        self.fast_CT_data = fast_CT(num_proj=1500)
-        self.fast_CT_data = [[0.513, 0.157, 0.319, 0.419, 0.351, 0.359, 0.473], [0.0, 5.0, 7.0, 10.0, 15.0, 20.0, 25.0]]
-        self.T_min, _ = h.find_min(self.fast_CT_data[0])
+        self.fCT_data = CT(path_ct=r'\\132.187.193.8\junk\sgrischagin\2021-11-30-sergej-CT-halbesPhantom-5W-M5p3\fast_CT\ct',
+                           path_refs=r'\\132.187.193.8\junk\sgrischagin\2021-11-30-sergej-CT-halbesPhantom-5W-M5p3\fast_ct\refs',
+                           path_darks=r'\\132.187.193.8\junk\sgrischagin\2021-11-30-sergej-CT-halbesPhantom-5W-M5p3\fast_ct\darks',
+                           num_proj=1500)
 
+        self.T_min, _ = hlp.find_min(self.fCT_data[:, 1])
         self.map = self.Generator(spatial_range=self.ssize)
         self.map['T_min'] = self.T_min
         self.map['iU0'] = {'x': None, 'y': None, 'd': None}
@@ -180,11 +149,15 @@ class Activator:
             _plt.create_T_kv_plot(path_result=self.scanner.path_fin, object=self.map, detailed=detailed)
             _plt.create_MAP_plot(path_result=self.scanner.path_fin, object=self.map, detailed=detailed)
 
-        self.create_lookup_table()
-        # self.calc_t_exp()
+        self.CT_data = CT(path_ct=r'\\132.187.193.8\junk\sgrischagin\2021-11-30-sergej-CT-halbesPhantom-5W-M5p3\ct',
+                          path_refs=r'\\132.187.193.8\junk\sgrischagin\2021-11-30-sergej-CT-halbesPhantom-5W-M5p3\refs',
+                          path_darks=r'\\132.187.193.8\junk\sgrischagin\2021-11-30-sergej-CT-halbesPhantom-5W-M5p3\darks',
+                          num_proj=1500)
 
-    def get_min_T(self):
-        return np.min(self.fast_CT_data[0])
+
+
+        self.create_lookup_table()
+
 
     def vertical_interpolation(self, points: np.array):
         step = 100000
@@ -194,14 +167,6 @@ class Activator:
         data = np.vstack((_f.x, _f.y)).T
         curve = np.vstack((x_fit, y_fit)).T
         return curve, data
-
-
-    def find_curve_max(self):
-        for d in self.map['d_curves']:
-            _c = self.map['d_curves'][d]['full']
-            idx = np.argmax(_c[:, 3])
-            self.map['d_curves'][d]['max_idx'] = idx
-
 
     def make_monokV_curve(self, kV):
         # suche in jeder Kurve den index der np.where(curve == kV) ist
@@ -216,7 +181,6 @@ class Activator:
             Y.append(y_val[0])
         return np.vstack((X, Y)).T
 
-
     def filter_relevant_curves(self, T_val):
         rel_curves = {}
         for d in self.map['d_curves']:
@@ -228,12 +192,10 @@ class Activator:
                 rel_curves[d] = self.map['d_curves'][d]
         return rel_curves
 
-
     def create_monoKV_curve(self, kV_val):
         monokV_points = self.make_monokV_curve(kV=kV_val)
         curve_fit, data_points = self.vertical_interpolation(points=monokV_points)
         return curve_fit, data_points[::-1]
-
 
     def mono_kv_curve(self, U_val):
         T = []
@@ -245,15 +207,13 @@ class Activator:
             transmission = _c[:, 1]
             snr = _c[:, 3]
 
-            val, idx = h.find_nearest(array=kv, value=U_val)
+            val, idx = hlp.find_nearest(array=kv, value=U_val)
             T.append(transmission[idx])
             SNR.append(snr[idx])
 
         T = np.asarray(T)
         SNR = np.asarray(SNR)
         return T, SNR
-
-
 
     def find_intercept(self, kv_val, T_val):
         """
@@ -281,7 +241,7 @@ class Activator:
             kv = _c[:, 0]
             T = _c[:, 1]
 
-            _, idx = h.find_nearest(array=kv, value=kv_val)
+            _, idx = hlp.find_nearest(array=kv, value=kv_val)
 
             delta = np.abs(T[idx] - T_val).min()
             if old_delta is None:
@@ -296,18 +256,64 @@ class Activator:
         return iT, isnr, _d
 
 
+
+    def create_lookup_table(self):
+
+        Ubest = self.map['Ubest_curve']['Ubest_val']
+        fCT_T, fCT_snr, fCT_d, fCT_theta = self.extract_MAP_data(kv_val=Ubest,
+                                                                 transmission=self.fCT_data[:, 1],
+                                                                 angles=self.fCT_data[:, 0])
+        fCT_texp = self.calc_texp(snr_arr=fCT_snr)
+
+
+        CT_T, CT_snr, CT_d, CT_theta = self.extract_MAP_data(kv_val=Ubest,
+                                                             transmission=self.CT_data[:, 1],
+                                                             angles=self.CT_data[:, 0])
+        CT_texp = self.calc_texp(snr_arr=CT_snr)
+
+
+
+
+
+        fig, (ax1, ax2) = plt.subplots(2)
+
+        ax1.plot(fCT_theta, fCT_texp, label=r'$t_{exp}(\theta)$ (fCT)')
+        ax1.scatter(fCT_theta, fCT_texp)
+        ax1.plot(CT_theta, CT_texp, label=r'$t_{exp}(\theta)$ (CT)')
+        ax1.scatter(CT_theta, CT_texp)
+        ax1.set_ylabel('$t_{exp}$  [ms]')
+        ax1.set_xlabel(r'$\theta$  $[\circ]$')
+        ax1.legend()
+
+        ax2.set_title('ax2 title')
+        ax2.plot(fCT_theta, fCT_d, label=r'$d(\theta)$ (fCT)')
+        ax2.scatter(fCT_theta, fCT_d)
+        ax2.plot(CT_theta, CT_d, label=r'$d(\theta)$ (CT)')
+        ax2.scatter(CT_theta, CT_d)
+        ax2.set_ylabel('sample thickness [mm]')
+        ax2.set_xlabel(r'$\theta$  $[\circ]$')
+
+        ax2.legend()
+        fig.tight_layout()
+        plt.show()
+
+        fig.savefig(os.path.join(self.scanner.path_fin, 'plots', f'd_t_theta-usr_snr_{self.snr_user}.pdf'), dpi=600)
+        print('test')
+
+    def smooth_curve(self, arr_1, arr_2):
+        pass
+
     def create_U0_curve(self, U0):
         self.map['U0_curve'] = {}
         T, SNR = self.mono_kv_curve(U_val=U0)
         self.map['U0_curve']['U0_val'] = U0
         self.map['U0_curve']['raw_data'] = self.Generator.merge_data(T, SNR)
 
-
     def create_Ubest_curve(self, d):
         _c = self.map['d_curves'][d]['full']
         kv = _c[:, 0]
         snr = _c[:, 3]
-        max_val, idx = h.find_max(array=snr)
+        max_val, idx = hlp.find_max(array=snr)
         kv_opt = kv[idx]
 
         self.map['Ubest_curve'] = {}
@@ -315,60 +321,31 @@ class Activator:
         self.map['Ubest_curve']['Ubest_val'] = kv_opt
         self.map['Ubest_curve']['raw_data'] = self.Generator.merge_data(T, SNR)
 
+    def extract_MAP_data(self, kv_val, angles: np.ndarray, transmission: np.ndarray):
+        list_iT, list_isnr, list_id, list_theta = [], [], [], []
 
-
-    def create_lookup_table(self):
-
-        iT, isnr, id, theta = self.translate_T_to_d()
-
-        t_exp = self.calc_t_exp(snr_arr=isnr)
-
-        plt.plot(theta, t_exp)
-        plt.show()
-
-        print('test')
-
-
-    def smooth_curve(self, arr_1, arr_2):
-        pass
-
-
-    def translate_T_to_d(self):
-        Ubest = self.map['Ubest_curve']['Ubest_val']
-        transmission = self.fast_CT_data[0]
-        angles = self.fast_CT_data[1]
-
-        list_iT = []
-        list_isnr = []
-        list_id = []
-        list_theta = []
+        #Ubest = self.map['Ubest_curve']['Ubest_val']
+        #transmission = self.fast_CT_data[:, 1]
+        #angles = self.fast_CT_data[:, 0]
 
         for i in range(len(angles)):
             # 1) find intercept between T(theta) and Ubest
             theta = angles[i]
             T = transmission[i]
-            iT, isnr, id = self.find_intercept(kv_val=Ubest, T_val=T)
-            list_iT.append(iT)
-            list_theta.append(theta)
-            list_isnr.append(isnr)
-            list_id.append(id)
+            iT, isnr, id = self.find_intercept(kv_val=kv_val, T_val=T)
+            list_iT.append(iT), list_theta.append(theta), list_isnr.append(isnr), list_id.append(id)
 
         return np.asarray(list_iT), np.asarray(list_isnr), np.asarray(list_id), np.asarray(list_theta)
 
-
-
-    def calc_t_exp(self, snr_arr):
+    def calc_texp(self, snr_arr):
+        """
+        Since the SNR values are SNR/s (id did not
+        """
         t_exp = []
         for i in range(snr_arr.shape[0]):
             tmp_t = snr_arr[i] / self.snr_user
             t_exp.append(tmp_t)
         return np.asarray(t_exp)
-
-
-
-
-
-
 
     def printer(self):
         ix = self.map['iU0']['x']
@@ -382,4 +359,3 @@ class Activator:
               f'interpolated thickness at intercept (d_opt):\n'  f'{d_opt}\n'
               f'\n'
               f'optimal voltage for measurement:\n' + f'{kV_opt} kV' + '\n')
-

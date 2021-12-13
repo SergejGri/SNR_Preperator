@@ -170,9 +170,9 @@ def extract_angle(num_of_projections, img_name, num_len):
 
     img_num_str = re.findall(r'[0-9]{4,10}', img_name)[0]
 
-    num = None
-    if re.match(r'[0]+', img_num_str):
-        num = 0
+    num = float(img_num_str)
+    if num < 1:
+        num = 0.0
     else:
         img_num_str = img_num_str.lstrip('0')
         num = int(img_num_str)

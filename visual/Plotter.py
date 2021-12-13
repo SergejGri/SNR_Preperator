@@ -1,6 +1,6 @@
 import os
 import numpy as np
-import helpers as h
+import helpers as hlp
 import matplotlib.pyplot as plt
 from cycler import cycler
 import matplotlib.gridspec as gridspec
@@ -86,7 +86,7 @@ class Plotter:
         for d in object['d_curves']:
             _c_fit = object['d_curves'][d]['full']
 
-            if h.is_int(d) and d in object['ds']:
+            if hlp.is_int(d) and d in object['ds']:
                 _c_data = object['d_curves'][d]['raw_data']
                 _a = 1.0
                 ax.plot(_c_fit[:, 1], _c_fit[:, 3], linestyle='-', linewidth='2', alpha=_a, label=f'{d} mm')
@@ -133,7 +133,7 @@ class Plotter:
             _c_fit = object['d_curves'][d]['full']
             _c_data = object['d_curves'][d]['raw_data']
 
-            if h.is_int(d) and d in object['ds']:
+            if hlp.is_int(d) and d in object['ds']:
                 _a = 1.0
                 ax.plot(_c_fit[:, 0], _c_fit[:, 1], linestyle='-', linewidth='2', alpha=_a, label=f'{d} mm')
                 ax.scatter(_c_data[:, 0], _c_data[:, 1], marker='o', alpha=_a)
@@ -191,87 +191,6 @@ class Plotter:
         fig.savefig(os.path.join(path_result, f'evo_MAP_.pdf'), dpi=600)
         print('test')
 
-
-
-    def compare_plot(self):
-        '''
-        Method for comparing of data from different measurements
-        '''
-
-        plt.rc('lines', linewidth=2)
-        plt.rc('axes', prop_cycle=(cycler('color', ['r', 'g', 'b', 'y', 'm'])))
-
-        gs = gridspec.GridSpec(2, 2)
-        fig = plt.figure(figsize=(15,6))
-
-        ax0 = plt.subplot(gs[0, 0])
-        ax1 = plt.subplot(gs[1:, 0])
-        ax2 = plt.subplot(gs[:, 1:])
-
-        path1 = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\2021-08-30_Evaluation\Eval_Result'
-        path2 = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\2021-09-18_Evaluation\Eval_Result'
-
-        db1 = DB(path1)
-        db2 = DB(path2)
-
-        ds = [1, 4, 5, 8, 9]
-        colors = ['r', 'g', 'b', 'y', 'm']
-        for _d, color in zip(ds, colors):
-            old_alpha = 0.2
-            new_alpha = 1.0
-
-            V_1, T_1, SNR_1 = db1.read_data(d=_d, mode='raw')
-            V_2, T_2, SNR_2 = db2.read_data(d=_d, mode='raw')
-
-            ax0.scatter(T_1, SNR_1, marker='x', s=40, alpha=old_alpha)
-            ax1.scatter(T_2, SNR_2, marker='x', s=40, label=f'{_d}mm new')
-            ax2.scatter(T_1, SNR_1, marker='x', s=40, c=color, alpha=old_alpha)
-            ax2.scatter(T_2, SNR_2, marker='x', s=40, c=color, alpha=new_alpha)
-
-
-            a_1, b_1, c_1 = np.polyfit(T_1, SNR_1, deg=2)
-            a_2, b_2, c_2 = np.polyfit(T_2, SNR_2, deg=2)
-
-            x_1 = np.linspace(T_1[0], T_1[-1], 141)
-            y_1 = self.func_poly(x_1, a_1, b_1, c_1)
-            x_2 = np.linspace(T_2[0], T_2[-1], 141)
-            y_2 = self.func_poly(x_2, a_2, b_2, c_2)
-
-            ax0.plot(x_1, y_1, alpha=0.5)
-            ax1.plot(x_2, y_2)
-            ax2.plot(x_1, y_1, c=color, alpha=old_alpha)
-            ax2.plot(x_2, y_2, c=color, label=f'{_d}mm')
-
-        #ax0.grid()
-        ax0.set_title('Measurement @ 30.08.2021')
-        ax0.tick_params(which='major', direction='in', width=1.2, length=6)
-        ax0.tick_params(which='minor', direction='in', width=1.2, length=2.5)
-        ax0.set_yscale('log')
-
-        ax1.grid()
-        ax1.set_title('Measurement @ 17.09.2021')
-        ax1.tick_params(which='major', direction='in', width=1.2, length=6)
-        ax1.tick_params(which='minor', direction='in', width=1.2, length=2.5)
-        ax1.set_yscale('log')
-
-        #ax2.grid()
-        ax2.set_title('30.08.2021 + 17.09.2021')
-        ax2.tick_params(which='major', direction='in', width=1.2, length=6)
-        ax2.tick_params(which='minor', direction='in', width=1.2, length=2.5)
-        ax2.legend()
-        ax2.set_yscale('log')
-
-
-        for axis in ['top', 'bottom', 'left', 'right']:
-            ax0.spines[axis].set_linewidth(1.2)
-            ax1.spines[axis].set_linewidth(1.2)
-            ax2.spines[axis].set_linewidth(1.2)
-
-        plt.legend()
-        plt.tight_layout()
-        fig.subplots_adjust(hspace=0.3)
-        plt.show()
-        fig.savefig(os.path.join(path2, f'MAP_compare.pdf'), dpi=600)
 
     def rm_underscore(self, d):
         d = d.replace('_', ' ')

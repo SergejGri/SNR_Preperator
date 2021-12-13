@@ -2,8 +2,9 @@ import csv
 import datetime
 import os
 import gc
-import helpers as h
+import helpers as hlp
 import numpy as np
+import matplotlib.pyplot as plt
 from ext import file
 from ext.SNR_spectra import SNR_Evaluator, ImageSeriesPixelArtifactFilterer
 
@@ -93,7 +94,7 @@ class SNRPrepperator:
 
     def calc_2D_snr(self, properties):
         for dir in properties:
-            voltage = h.extract(what='kv', dfile=dir)
+            voltage = hlp.extract(what='kv', dfile=dir)
 
             SNR_eval = SNR_Evaluator()
 
@@ -150,7 +151,7 @@ class SNRPrepperator:
 
         for dirr in os.listdir(self.path_base):
             if os.path.isdir(os.path.join(self.path_base, dirr)) and 'kV' in dirr:
-                kv = h.extract(what='kv', dfile=dirr)
+                kv = hlp.extract(what='kv', dfile=dirr)
                 if kv in self.ex_kvs:
                     pass
                 else:
@@ -241,7 +242,7 @@ def calc_T(data, refs, darks):
             rect = img[i:i+h, j:j+w]
             medn = np.median(rect)
             median.append(medn)
-            transmission_min = min(median)
+    transmission_min = min(median)
     del img
     gc.collect()
     return transmission_min
@@ -250,12 +251,15 @@ def calc_T(data, refs, darks):
 
 
 class ImageLoader:
-    def __init__(self, used_SCAP: bool = True, remove_lines:bool = True, load_px_map: bool = False, range: tuple = None,
-                 crop_area: tuple = None):
+    def __init__(self, used_SCAP: bool = True, remove_lines: bool = True, load_px_map: bool = False,
+                 stack_range: tuple = None, crop_area: tuple = None):
         """
+        ATTENTION:
         please note ref images need to be loaded as first image stack! Since the ratio between median intensity of the
         stack and the outlier pixel rows is most significant at ref images.
-
+        :param used_SCAP: set value to True if you captured your images with the x-ray source in-house software SCAP.
+        This is important, since captured images with 'Metric_Steuerung' Software are fliped and rotated in compare to
+        SCAP images.
         """
         self.used_SCAP = used_SCAP
         self.remove_lines = remove_lines
@@ -271,12 +275,13 @@ class ImageLoader:
             self.crop_area = crop_area
             self.view = (0, 0), *self.crop_area
         else:
+            self.crop_area = (None, None)
             self.view = (None, None, None)
 
         self.idxs = []
 
         self.bad_px_map = load_px_map
-        self.stack_range = range
+        self.stack_range = stack_range
 
         self.t_exp = None
 
@@ -284,7 +289,7 @@ class ImageLoader:
         self.new_img_shape = None
 
         if self.bad_px_map:
-            self.px_map = h.load_bad_pixel_map(crop=self.crop_area)
+            self.px_map = hlp.load_bad_pixel_map(crop=self.crop_area)
             self.filterer = ImageSeriesPixelArtifactFilterer(bad_pixel_map=self.px_map)
         else:
             self.filterer = ImageSeriesPixelArtifactFilterer()
@@ -315,16 +320,21 @@ class ImageLoader:
             DEVIATION_THRESHOLD = 0.15
 
             probe_img = img_stack[0]
-            line_posY = probe_img.shape[0]-100
 
             if self.used_SCAP:
-                x0, x1 = 0, probe_img.shape[1]
+                start, end = 0, probe_img.shape[2]
             else:
-                x0, x1 = 0, probe_img.shape[0]
+                start, end = 0, probe_img.shape[1]
 
-            line_plot = probe_img[line_posY-5:line_posY, x0:x1]
+            line_pos = 100
+            line_plot = probe_img[line_pos-5:line_pos, start:end]
             line_plot = np.nanmean(line_plot, axis=0)
             line_median = np.nanmedian(line_plot)
+
+            x = np.linspace(0, img_stack.shape[1])
+            plt.plot(x, line_plot)
+            plt.show()
+
 
 
             for i in range(len(line_plot)):

@@ -1,7 +1,7 @@
 import time
 import numpy as np
 import os
-import helpers as h
+import helpers as hlp
 import matplotlib.pyplot as plt
 from numpy.polynomial import polynomial as P
 
@@ -84,7 +84,7 @@ class SNRMapGenerator:
         snr_means = []
 
         for file in self.scanner.files['SNR']:
-            _d = h.extract(what='d', dfile=file)
+            _d = hlp.extract(what='d', dfile=file)
             if _d == d:
                 kV, mean_SNR = self.calc_avg_SNR(file, lb, rb)
                 if kV in self.kV_filter:
@@ -103,7 +103,7 @@ class SNRMapGenerator:
         # read the file which is produced by the script SNR_Spectra.py
         # interpolate between data points, because for initial MAP there are to little data points between the first and
         # second entry. The data points are not equally distributed.
-        kv = h.extract(what='kv', dfile=file)
+        kv = hlp.extract(what='kv', dfile=file)
         data = np.genfromtxt(file, skip_header=3)
         data = self.interpolate_data(data)
 
@@ -193,7 +193,7 @@ class SNRMapGenerator:
             p0 = [row0[:, 1][0], row0[:, 2][0]]    # extract [T0, SNR0] and [T1, SNR1] for triangle
             p1 = [row1[:, 1][0], row1[:, 2][0]]
 
-            range_kv_points = h.give_lin_steps(p0=p0, p1=p1, pillars=n)
+            range_kv_points = hlp.give_lin_steps(p0=p0, p1=p1, pillars=n)
 
             kvs_vals = np.linspace(kv0, kv1, n)[np.newaxis].T
             kvs_vals = np.hstack((kvs_vals, range_kv_points))
@@ -213,7 +213,7 @@ class SNRMapGenerator:
 
         kv_steps_full = np.arange(kV[0], kV[-1]+1, step=kv_step_width)
         if 180.0 < np.max(kv_steps_full):
-            val, idx = h.find_nearest(kv_steps_full, 180)
+            val, idx = hlp.find_nearest(kv_steps_full, 180)
             kv_steps_full = kv_steps_full[:idx+1]
         kv_grid = self.merge_data(kv_steps_full, new_x_axis, semi_fit_SNR, fit_new_axis)
 
@@ -282,7 +282,7 @@ class SNRMapGenerator:
             coeff_t, coeff_m = P.polyfit(x, y, 1)
             xvals = np.linspace(T1[j], T2[j], len(sub_ds)+2)[1:-1] # +2 because cutting off the first and last item
 
-            yvals = h.linear_f(x=xvals, m=coeff_m, t=coeff_t)
+            yvals = hlp.linear_f(x=xvals, m=coeff_m, t=coeff_t)
 
             X.append(xvals)
             Y.append(yvals)
@@ -357,7 +357,7 @@ class SNRMapGenerator:
     def get_properties(file):
         filename = os.path.basename(file)
         try:
-            kv = h.extract_kv(filename)
+            kv = hlp.extract_kv(filename)
         except ValueError:
             print('check naming convention of your passed files.')
         return kv

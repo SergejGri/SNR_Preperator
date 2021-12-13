@@ -37,7 +37,7 @@ def main():
     T_data = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-11-29-sergej-AluKeil-5W\20211204_5W\2021-12-3_T'
 
     # TODO: implement excluding kvs as kv_ex
-    acti = Activator(snr_files=snr_data, T_files=T_data, U0=110, snr_user=2.0, ssize=(30), kv_ex=[140], ds_ex=[32])
+    acti = Activator(snr_files=snr_data, T_files=T_data, U0=110, snr_user=10.0, ssize=(30), kv_ex=[140], ds_ex=[32])
     acti(create_plot=False, detailed=False)
 
 
