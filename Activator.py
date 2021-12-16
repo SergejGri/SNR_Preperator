@@ -7,7 +7,8 @@ import numpy as np
 from scipy import interpolate
 from matplotlib import pyplot as plt
 
-from snr_calc.ct_evaluation import CT
+from snr_calc.ct_preperation import CT
+from snr_calc.ct_preperation import split_multi_CT
 from visual.Plotter import Plotter as PLT
 from visual.Plotter import TerminalColor as PCOL
 from snr_calc.map_generator import SNRMapGenerator
@@ -77,59 +78,69 @@ class Scanner:
 
 
 class Activator:
-    def __init__(self, snr_files: str, T_files: str, U0: int, snr_user: float, kv_ex: list = None, ds_ex: list = None,
-                 ssize=None, vir_curve_step: float = None, create_plot: bool = False):
-
-        self.fCT_data = None
+    def __init__(self, attributes):
+        self.path = attributes.ex_kv
+    #def __init__(self, paths: dict, U0: int, snr_user: float, base_texp: int = None, kv_ex: list = None,
+    #             ds_ex: list = None, spatial_size=None, vir_curve_step: float = None):
+        self.paths = attributes.paths
+        self.fCT_data = {'T': None, 'snr': None, 'd': None, 'theta': None, 'texp': None}
+        self.fCT_texp = None
         self.CT_data = None
+        self.CT_texp = None
+        self.CT_theta = None
         self.T_min = None
+        self.mode_avg = False
+        if attributes.base_texp is not None:
+            self.mode_avg = True
+            self.base_texp = attributes.base_texp
 
-        self.kv_ex = kv_ex
-        self.ds_ex = ds_ex
 
-        if ssize:
-            self.ssize = ssize
+        self.kv_ex = attributes.kv_ex
+        self.ds_ex = attributes.ds_ex
+
+        if attributes.spatial_size:
+            self.ssize = attributes.spatial_size
         else:
-            self.ssize = (250, 150)
+            self.ssize = (100)
             self.init_MAP = True
-        self.snr_user = snr_user
-        self.scanner = Scanner(snr_files=snr_files, T_files=T_files, ds_ex=self.ds_ex)
+            print('No spatial_size value was passed: Initial MAP creation @ 100E-6 m')
+        self.snr_user = attributes.snr_user
+        self.scanner = Scanner(snr_files=self.paths['snr_data'], T_files=self.paths['T_data'], ds_ex=self.ds_ex)
 
         self.stop_exe = False
 
-        if 40 <= U0 <= 180:
-            self.U0 = U0
+        if 40 <= attributes.U0 <= 180:
+            self.U0 = attributes.U0
         else:
-            print(f'The adjust Voltage is out of range! U0 = {U0} \n'
+            print(f'The adjust Voltage is out of range! U0 = {attributes.U0} \n'
                   + PCOL.BOLD + '...exit...' + PCOL.END)
             sys.exit()
 
         self.kV_interpolation = False
 
-        if vir_curve_step is None:
+        if attributes.vir_curve_step is None:
             self.vir_curve_step = 0.1
         else:
-            self.vir_curve_step = vir_curve_step
+            self.vir_curve_step = attributes.vir_curve_step
 
         self.U0_intercept = {'x': {}, 'y': {}, 'd': {}}
 
         self.Ubest_curve = {'val': None, 'fit': {}, 'data': {}}
         self.U0_curve = {'val': self.U0, 'fit': {}, 'raw_data': {}}
 
-        self.Generator = SNRMapGenerator(scanner=self.scanner, kv_filter=kv_ex)
+        self.Generator = SNRMapGenerator(scanner=self.scanner, kv_filter=attributes.kv_ex)
+        self._plt = PLT()
 
 
-    def __call__(self, create_plot: bool = True, detailed: bool = False):
+    def __call__(self, create_plot: bool = True, detailed: bool = False, just_fCT: bool = False):
         # 0) find U_best
         # 1) fast_CT
         # 2) extract T_min
         # 3)
-        self.fCT_data = CT(path_ct=r'\\132.187.193.8\junk\sgrischagin\2021-11-30-sergej-CT-halbesPhantom-5W-M5p3\fast_CT\ct',
-                           path_refs=r'\\132.187.193.8\junk\sgrischagin\2021-11-30-sergej-CT-halbesPhantom-5W-M5p3\fast_ct\refs',
-                           path_darks=r'\\132.187.193.8\junk\sgrischagin\2021-11-30-sergej-CT-halbesPhantom-5W-M5p3\fast_ct\darks',
-                           num_proj=1500)
 
-        self.T_min, _ = hlp.find_min(self.fCT_data[:, 1])
+        self.evaluate_fCT()
+
+
         self.map = self.Generator(spatial_range=self.ssize)
         self.map['T_min'] = self.T_min
         self.map['iU0'] = {'x': None, 'y': None, 'd': None}
@@ -144,19 +155,21 @@ class Activator:
             self.create_Ubest_curve(d=self.map['iU0']['d'])
             self.printer()
 
+
         if create_plot:
-            _plt = PLT()
-            _plt.create_T_kv_plot(path_result=self.scanner.path_fin, object=self.map, detailed=detailed)
-            _plt.create_MAP_plot(path_result=self.scanner.path_fin, object=self.map, detailed=detailed)
-
-        self.CT_data = CT(path_ct=r'\\132.187.193.8\junk\sgrischagin\2021-11-30-sergej-CT-halbesPhantom-5W-M5p3\ct',
-                          path_refs=r'\\132.187.193.8\junk\sgrischagin\2021-11-30-sergej-CT-halbesPhantom-5W-M5p3\refs',
-                          path_darks=r'\\132.187.193.8\junk\sgrischagin\2021-11-30-sergej-CT-halbesPhantom-5W-M5p3\darks',
-                          num_proj=1500)
+            self._plt.create_T_kv_plot(path_result=self.scanner.path_fin, object=self.map, detailed=detailed)
+            self._plt.create_MAP_plot(path_result=self.scanner.path_fin, object=self.map, detailed=detailed)
 
 
+        self.get_texp_from_fCT(mode_avg=self.mode_avg)
+        self.evaluate_CT()
+        self.CT_data = CT(path_ct=self.paths['CT_imgs'],
+                          path_refs=self.paths['CT_refs'],
+                          path_darks=self.paths['CT_darks'])
 
-        self.create_lookup_table()
+
+        self.t_exp, self.theta = self.create_lookup_table()
+
 
 
     def vertical_interpolation(self, points: np.array):
@@ -255,51 +268,6 @@ class Activator:
 
         return iT, isnr, _d
 
-
-
-    def create_lookup_table(self):
-
-        Ubest = self.map['Ubest_curve']['Ubest_val']
-        fCT_T, fCT_snr, fCT_d, fCT_theta = self.extract_MAP_data(kv_val=Ubest,
-                                                                 transmission=self.fCT_data[:, 1],
-                                                                 angles=self.fCT_data[:, 0])
-        fCT_texp = self.calc_texp(snr_arr=fCT_snr)
-
-
-        CT_T, CT_snr, CT_d, CT_theta = self.extract_MAP_data(kv_val=Ubest,
-                                                             transmission=self.CT_data[:, 1],
-                                                             angles=self.CT_data[:, 0])
-        CT_texp = self.calc_texp(snr_arr=CT_snr)
-
-
-
-
-
-        fig, (ax1, ax2) = plt.subplots(2)
-
-        ax1.plot(fCT_theta, fCT_texp, label=r'$t_{exp}(\theta)$ (fCT)')
-        ax1.scatter(fCT_theta, fCT_texp)
-        ax1.plot(CT_theta, CT_texp, label=r'$t_{exp}(\theta)$ (CT)')
-        ax1.scatter(CT_theta, CT_texp)
-        ax1.set_ylabel('$t_{exp}$  [ms]')
-        ax1.set_xlabel(r'$\theta$  $[\circ]$')
-        ax1.legend()
-
-        ax2.set_title('ax2 title')
-        ax2.plot(fCT_theta, fCT_d, label=r'$d(\theta)$ (fCT)')
-        ax2.scatter(fCT_theta, fCT_d)
-        ax2.plot(CT_theta, CT_d, label=r'$d(\theta)$ (CT)')
-        ax2.scatter(CT_theta, CT_d)
-        ax2.set_ylabel('sample thickness [mm]')
-        ax2.set_xlabel(r'$\theta$  $[\circ]$')
-
-        ax2.legend()
-        fig.tight_layout()
-        plt.show()
-
-        fig.savefig(os.path.join(self.scanner.path_fin, 'plots', f'd_t_theta-usr_snr_{self.snr_user}.pdf'), dpi=600)
-        print('test')
-
     def smooth_curve(self, arr_1, arr_2):
         pass
 
@@ -321,21 +289,68 @@ class Activator:
         self.map['Ubest_curve']['Ubest_val'] = kv_opt
         self.map['Ubest_curve']['raw_data'] = self.Generator.merge_data(T, SNR)
 
+
+    def get_texp_from_fCT(self, mode_avg: bool):
+        Ubest = self.map['Ubest_curve']['Ubest_val']
+        fCT_T = self.fCT_data['T']
+        fCT_theta = self.fCT_data['theta']
+
+        self.fCT_data['T'], self.fCT_data['snr'], self.fCT_data['d'],  self.fCT_data['theta'] = \
+            self.extract_MAP_data(kv_val=Ubest, transmission=fCT_T, angles=fCT_theta)
+        
+        self.fCT_data['texp'] = self.calc_texp(snr_arr=self.fCT_data['snr'])
+
+        if mode_avg:
+            self.fCT_data['avg_num'] = dict()
+            self.fCT_data['avg_num'] = self.calc_avg(self.base_texp)
+            print('test')
+
+
+    def calc_avg(self, btexp):
+        fCT_texp = self.fCT_data['texp']
+        fCT_theta = self.fCT_data['theta']
+
+        loc_avgs = []
+        for i in range(fCT_texp.size):
+            avg_nmum = hlp.round_to_nearest_hundred(btexp, fCT_texp[i])
+            loc_avgs.append(avg_nmum)
+
+        return np.asarray(loc_avgs)
+
+
+
+
+
+    """
+    def create_lookup_table(self):
+        Ubest = self.map['Ubest_curve']['Ubest_val']
+        fCT_T, fCT_snr, fCT_d, fCT_theta = self.extract_MAP_data(kv_val=Ubest,
+                                                                 transmission=self.fCT_data[:, 1],
+                                                                 angles=self.fCT_data[:, 0])
+        self.fCT_texp = self.calc_texp(snr_arr=fCT_snr)
+
+
+        CT_T, CT_snr, CT_d, CT_theta = self.extract_MAP_data(kv_val=Ubest,
+                                                             transmission=self.CT_data[:, 1],
+                                                             angles=self.CT_data[:, 0])
+        CT_texp = self.calc_texp(snr_arr=CT_snr)
+
+        return CT_texp, CT_theta
+    """
+
+
     def extract_MAP_data(self, kv_val, angles: np.ndarray, transmission: np.ndarray):
         list_iT, list_isnr, list_id, list_theta = [], [], [], []
 
-        #Ubest = self.map['Ubest_curve']['Ubest_val']
-        #transmission = self.fast_CT_data[:, 1]
-        #angles = self.fast_CT_data[:, 0]
-
         for i in range(len(angles)):
             # 1) find intercept between T(theta) and Ubest
-            theta = angles[i]
+            theta = round(angles[i], 2)
             T = transmission[i]
             iT, isnr, id = self.find_intercept(kv_val=kv_val, T_val=T)
             list_iT.append(iT), list_theta.append(theta), list_isnr.append(isnr), list_id.append(id)
 
         return np.asarray(list_iT), np.asarray(list_isnr), np.asarray(list_id), np.asarray(list_theta)
+
 
     def calc_texp(self, snr_arr):
         """
@@ -343,9 +358,69 @@ class Activator:
         """
         t_exp = []
         for i in range(snr_arr.shape[0]):
-            tmp_t = snr_arr[i] / self.snr_user
+            tmp_t = self.snr_user / snr_arr[i]
             t_exp.append(tmp_t)
         return np.asarray(t_exp)
+
+
+    def evaluate_fCT(self):
+        self.fCT_data['T'], self.fCT_data['theta'] = CT(path_ct=self.paths['fCT_imgs'],
+                                                        path_refs=self.paths['fCT_refs'],
+                                                        path_darks=self.paths['fCT_darks'])
+
+        self.T_min, _ = hlp.find_min(self.fCT_data['T'])
+
+
+        #hier muss noch eine Funtion die das gleiche wie bei evaluate_CT macht also texp calcen aber erst nachdem MAP usw gebaut wurde!
+
+
+    def evaluate_CT(self):
+        if self.mode_avg:
+            splitted_cts = split_multi_CT(self.paths['CT_base_path'], imgs_per_angle=4)
+            self.CT_data['avg_num'] = self.interpolate_avg_num()
+        # die interpolation muss vor der CT auswertung gemacht werden. Die Auswertung muss schon 'wissen' wie viel
+        # sie pro winkelschritt avaregen soll.
+
+        self.CT_data['T'], self.CT_data['theta'] = CT(path_ct=self.paths['CT_imgs'],
+                                                        path_refs=self.paths['CT_refs'],
+                                                        path_darks=self.paths['CT_darks'])
+
+        Ubest = self.map['Ubest_curve']['Ubest_val']
+
+
+
+
+        self.CT_data['T'], \
+        self.CT_data['snr'], \
+        self.CT_data['d'], \
+        self.CT_data['theta'] = self.extract_MAP_data(kv_val=Ubest,
+                                                       transmission=self.CT_data['T'],
+                                                       angles=self.CT_data['theta'])
+
+        self.CT_data['texp'] = self.calc_texp(snr_arr=self.CT_data['snr'])
+
+
+    def interpolate_avg_num(self):
+        fCT_imgs = [f for f in os.listdir(self.paths['fCT_imgs']) if os.path.isfile(os.path.join(self.paths['fCT_imgs'], f))]
+        fCT_imgs = sorted(fCT_imgs)
+
+        fCT_avg = self.fCT_data['avg_num']
+        fCT_theta = self.fCT_data['theta']
+
+        step = 360 / 1500
+        list_angles = []
+
+        old_step = 0
+        for i in range(1500):
+            if i == 0:
+                new_step = 0
+            else:
+                new_step = old_step + step
+            list_angles.append(round(new_step, 2))
+            old_step = new_step
+
+
+
 
     def printer(self):
         ix = self.map['iU0']['x']

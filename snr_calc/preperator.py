@@ -255,11 +255,12 @@ class ImageLoader:
                  stack_range: tuple = None, crop_area: tuple = None):
         """
         ATTENTION:
-        please note ref images need to be loaded as first image stack! Since the ratio between median intensity of the
+        please note ref images MUST be loaded as first image stack! Since the ratio between median intensity of the
         stack and the outlier pixel rows is most significant at ref images.
         :param used_SCAP: set value to True if you captured your images with the x-ray source in-house software SCAP.
-        This is important, since captured images with 'Metric_Steuerung' Software are fliped and rotated in compare to
+        This is important, since captured images with 'Metric_Steuerung' Software are flipped and rotated in compare to
         SCAP images.
+        :param remove_lines: if is True, detector slice line will be removed.
         """
         self.used_SCAP = used_SCAP
         self.remove_lines = remove_lines
@@ -322,20 +323,14 @@ class ImageLoader:
             probe_img = img_stack[0]
 
             if self.used_SCAP:
-                start, end = 0, probe_img.shape[2]
-            else:
                 start, end = 0, probe_img.shape[1]
+            else:
+                start, end = 0, probe_img.shape[0]
 
             line_pos = 100
             line_plot = probe_img[line_pos-5:line_pos, start:end]
             line_plot = np.nanmean(line_plot, axis=0)
             line_median = np.nanmedian(line_plot)
-
-            x = np.linspace(0, img_stack.shape[1])
-            plt.plot(x, line_plot)
-            plt.show()
-
-
 
             for i in range(len(line_plot)):
                 px_val = line_plot[i]

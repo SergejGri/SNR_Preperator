@@ -128,12 +128,36 @@ def poly_2(x, a, b, c):
     return a * x ** 2 + b * x + c
 
 
-def poly_fit(var_x, var_y, steps):
-    def func_poly(x, a, b, c): return a * x ** 2 + b * x + c
-    a, b, c = np.polyfit(var_x, var_y, deg=2)
-    x = np.linspace(var_x[0], var_x[-1], steps)
-    y = func_poly(x, a, b, c)
-    return x, y
+def poly_fit(var_x, var_y, steps, order):
+    if order == 2:
+        def func_poly(x, a, b, c): return a * x ** 2 + b * x + c
+        a, b, c = np.polyfit(var_x, var_y, deg=2)
+        x = np.linspace(var_x[0], var_x[-1], steps)
+        y = func_poly(x, a, b, c)
+        return x, y
+    if order == 3:
+        def func_poly(x, a, b, c, d): return a * x ** 3 + b * x**2 + c*x + d
+        a, b, c, d = np.polyfit(var_x, var_y, deg=3)
+        x = np.linspace(var_x[0], var_x[-1], steps)
+        y = func_poly(x, a, b, c, d)
+        return x, y
+    if order == 4:
+        def func_poly(x, a, b, c, d, e): return a * x ** 4 + b * x**3 + c*x**2 + d*x + e
+        a, b, c, d, e = np.polyfit(var_x, var_y, deg=4)
+        x = np.linspace(var_x[0], var_x[-1], steps)
+        y = func_poly(x, a, b, c, d, e)
+        return x, y
+    if order == 9:
+        def func_poly(x, a, b, c, d, e, f, g, h, i, j): return a*x**9 + b*x**8 + c*x**7 + d*x**6 + e*x**5 + f*x**4 + g*x**3 + h*x**2 + i*x + j
+        a, b, c, d, e, f, g, h, i, j = np.polyfit(var_x, var_y, deg=9)
+        x = np.linspace(var_x[0], var_x[-1], steps)
+        y = func_poly(x, a, b, c, d, e, f, g, h, i, j)
+        return x, y
+
+
+def sin(x, a, b, c):
+    return a + b * np.sin(x*np.pi/180.0 + c)
+
 
 
 def find_max(array):
@@ -163,7 +187,12 @@ def merge_v1D(*cols):
     return arr
 
 
-def extract_angle(num_of_projections, img_name, num_len):
+def round_to_nearest_hundred(btexp, num):
+    num = round(num / 100) * 100
+    avg_num = int(num / btexp)
+    return avg_num
+
+def extract_angle(num_of_projections, img_name):
     """
     :param num_len: num of integers in the naming convention of the image e.g. img_0017
     """
@@ -179,7 +208,7 @@ def extract_angle(num_of_projections, img_name, num_len):
 
     angle = (360/num_of_projections) * num
 
-    return angle
+    return round(angle, 2)
 
 def strip_chars(char, num):
     pass
@@ -263,6 +292,8 @@ def prep_curve(x, y):
     xn = np.interp(t, u, x)
     yn = np.interp(t, u, y)
     return xn, yn
+
+
 
 
 #def d_curve_T_intercept(self, curve):
