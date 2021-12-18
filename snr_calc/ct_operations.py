@@ -1,8 +1,10 @@
 import os
 import gc
+import re
 from timeit import default_timer as timer
 import numpy as np
-
+import matplotlib.pyplot as plt
+from ext import file
 from snr_calc.preperator import ImageLoader
 import helpers as hlp
 
@@ -26,7 +28,7 @@ def CT(path_ct, path_refs, path_darks):
     all_imgs = sorted(all_imgs)
 
     for k in range(data.shape[0]):
-        theta = hlp.extract_angle(num_of_projections=len(all_imgs), img_name=all_imgs[k])
+        theta = hlp.extract_angle(name=all_imgs[k], num_of_projections=len(all_imgs))
 
         img = (data[k] - darks_avg) / (refs_avg - darks_avg)
         median = []
@@ -74,7 +76,7 @@ def CT_avg_imgs(path_ct, path_refs, path_darks, avgs_num: int):
     all_imgs = sorted(all_imgs)
 
     for k in range(data.shape[0]):
-        theta = hlp.extract_angle(num_of_projections=len(all_imgs), img_name=all_imgs[k])
+        theta = hlp.extract_angle(name=all_imgs[k], num_of_projections=len(all_imgs))
 
         img = (data[k] - darks_avg) / (refs_avg - darks_avg)
         median = []
@@ -102,12 +104,52 @@ def CT_avg_imgs(path_ct, path_refs, path_darks, avgs_num: int):
     return T, theta
 
 
-def split_multi_CT(base_path, imgs_per_angle):
-    num_of_cts = [cti for cti in range(imgs_per_angle + 1)][1:]
+def avg_multi_img_CT(object, base_path, imgs_per_angle):
 
-    for j in range(len(num_of_cts)):
-        single_ct_path = os.path.join(base_path, 'CT_', num_of_cts[j])
-        if not os.path.exists(single_ct_path):
-            os.makedirs(single_ct_path)
+    abc = object.fCT_data
+    images = [f for f in os.listdir(base_path) if os.path.isfile(os.path.join(base_path, f))]
+    images = sorted(images)
+    images_cp = images.copy()
 
-    pass
+    final_dir = os.path.join(base_path, f'merged-CT-{imgs_per_angle}-imgs-avg')
+    if not os.path.exists(final_dir):
+        os.makedirs(final_dir)
+    working_dir = os.path.join(base_path, f'_TMP-FOLDER_')
+    if not os.path.exists(working_dir):
+        os.makedirs(working_dir)
+
+    for i in range(int(len(images)/imgs_per_angle)):
+        nums = []
+
+        for j in range(imgs_per_angle):
+            os.rename(os.path.join(base_path, images_cp[j]), os.path.join(working_dir, images_cp[j]))
+            num = hlp.extract_iternum_from_file(name=images_cp[j])
+            nums.append(num)
+
+        del images_cp[:imgs_per_angle]
+
+        filename = os.path.join(final_dir, f'ct-avgimg-{nums[0]}-{nums[-1]}.raw')
+
+        avg_img = prep_substack(path=working_dir)
+        file.image.save(image=avg_img, filename=filename, suffix='raw', output_dtype=np.uint16)
+
+    rm_info(path=final_dir)
+    os.rmdir(working_dir)
+
+
+
+def rm_info(path):
+    for fname in os.listdir(path):
+        if fname.lower().endswith('.info'):
+            os.remove(os.path.join(path, fname))
+
+
+def prep_substack(path: str):
+    img_loader = ImageLoader(used_SCAP=False, remove_lines=False, load_px_map=False)
+    img_stack = img_loader.load_stack(path=path)
+    avg_img = np.nanmean(img_stack, axis=0)
+    for f in os.listdir(path):
+        os.remove(os.path.join(path, f))
+    return avg_img
+
+

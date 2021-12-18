@@ -7,8 +7,8 @@ import numpy as np
 from scipy import interpolate
 from matplotlib import pyplot as plt
 
-from snr_calc.ct_preperation import CT
-from snr_calc.ct_preperation import split_multi_CT
+from snr_calc.ct_operations import CT
+from snr_calc.ct_operations import avg_multi_img_CT
 from visual.Plotter import Plotter as PLT
 from visual.Plotter import TerminalColor as PCOL
 from snr_calc.map_generator import SNRMapGenerator
@@ -16,10 +16,10 @@ import helpers as hlp
 
 
 class Scanner:
-    def __init__(self, snr_files: str, T_files: str, ds_ex: list):
-        self.p_SNR_files = snr_files
-        self.p_T_files = T_files
-        self.ds_ex = ds_ex
+    def __init__(self, params):
+        self.p_SNR_files = params.paths['snr_data']
+        self.p_T_files = params.paths['T_data']
+        self.ds_ex = params.excluded_thicknesses
         self.path_fin = os.path.join(os.path.dirname(self.p_T_files), 'MAP')
         self.curves = {}
         self.files = {}
@@ -79,7 +79,6 @@ class Scanner:
 
 class Activator:
     def __init__(self, attributes):
-        self.path = attributes.ex_kv
     #def __init__(self, paths: dict, U0: int, snr_user: float, base_texp: int = None, kv_ex: list = None,
     #             ds_ex: list = None, spatial_size=None, vir_curve_step: float = None):
         self.paths = attributes.paths
@@ -95,8 +94,8 @@ class Activator:
             self.base_texp = attributes.base_texp
 
 
-        self.kv_ex = attributes.kv_ex
-        self.ds_ex = attributes.ds_ex
+        self.kv_ex = attributes.excluded_kvs
+        self.ds_ex = attributes.excluded_thicknesses
 
         if attributes.spatial_size:
             self.ssize = attributes.spatial_size
@@ -105,7 +104,7 @@ class Activator:
             self.init_MAP = True
             print('No spatial_size value was passed: Initial MAP creation @ 100E-6 m')
         self.snr_user = attributes.snr_user
-        self.scanner = Scanner(snr_files=self.paths['snr_data'], T_files=self.paths['T_data'], ds_ex=self.ds_ex)
+        self.scanner = Scanner(params=attributes)
 
         self.stop_exe = False
 
@@ -118,17 +117,17 @@ class Activator:
 
         self.kV_interpolation = False
 
-        if attributes.vir_curve_step is None:
-            self.vir_curve_step = 0.1
+        if attributes.virtual_curve_step is None:
+            self.v_curve_step = 0.1
         else:
-            self.vir_curve_step = attributes.vir_curve_step
+            self.v_curve_step = attributes.virtual_curve_step
 
         self.U0_intercept = {'x': {}, 'y': {}, 'd': {}}
 
         self.Ubest_curve = {'val': None, 'fit': {}, 'data': {}}
         self.U0_curve = {'val': self.U0, 'fit': {}, 'raw_data': {}}
 
-        self.Generator = SNRMapGenerator(scanner=self.scanner, kv_filter=attributes.kv_ex)
+        self.Generator = SNRMapGenerator(scanner=self.scanner, kv_filter=self.kv_ex)
         self._plt = PLT()
 
 
@@ -181,6 +180,7 @@ class Activator:
         curve = np.vstack((x_fit, y_fit)).T
         return curve, data
 
+
     def make_monokV_curve(self, kV):
         # suche in jeder Kurve den index der np.where(curve == kV) ist
         X = []
@@ -194,6 +194,7 @@ class Activator:
             Y.append(y_val[0])
         return np.vstack((X, Y)).T
 
+
     def filter_relevant_curves(self, T_val):
         rel_curves = {}
         for d in self.map['d_curves']:
@@ -205,10 +206,12 @@ class Activator:
                 rel_curves[d] = self.map['d_curves'][d]
         return rel_curves
 
+
     def create_monoKV_curve(self, kV_val):
         monokV_points = self.make_monokV_curve(kV=kV_val)
         curve_fit, data_points = self.vertical_interpolation(points=monokV_points)
         return curve_fit, data_points[::-1]
+
 
     def mono_kv_curve(self, U_val):
         T = []
@@ -227,6 +230,7 @@ class Activator:
         T = np.asarray(T)
         SNR = np.asarray(SNR)
         return T, SNR
+
 
     def find_intercept(self, kv_val, T_val):
         """
@@ -268,8 +272,10 @@ class Activator:
 
         return iT, isnr, _d
 
+
     def smooth_curve(self, arr_1, arr_2):
         pass
+
 
     def create_U0_curve(self, U0):
         self.map['U0_curve'] = {}
@@ -303,7 +309,6 @@ class Activator:
         if mode_avg:
             self.fCT_data['avg_num'] = dict()
             self.fCT_data['avg_num'] = self.calc_avg(self.base_texp)
-            print('test')
 
 
     def calc_avg(self, btexp):
@@ -316,27 +321,6 @@ class Activator:
             loc_avgs.append(avg_nmum)
 
         return np.asarray(loc_avgs)
-
-
-
-
-
-    """
-    def create_lookup_table(self):
-        Ubest = self.map['Ubest_curve']['Ubest_val']
-        fCT_T, fCT_snr, fCT_d, fCT_theta = self.extract_MAP_data(kv_val=Ubest,
-                                                                 transmission=self.fCT_data[:, 1],
-                                                                 angles=self.fCT_data[:, 0])
-        self.fCT_texp = self.calc_texp(snr_arr=fCT_snr)
-
-
-        CT_T, CT_snr, CT_d, CT_theta = self.extract_MAP_data(kv_val=Ubest,
-                                                             transmission=self.CT_data[:, 1],
-                                                             angles=self.CT_data[:, 0])
-        CT_texp = self.calc_texp(snr_arr=CT_snr)
-
-        return CT_texp, CT_theta
-    """
 
 
     def extract_MAP_data(self, kv_val, angles: np.ndarray, transmission: np.ndarray):
@@ -376,8 +360,12 @@ class Activator:
 
     def evaluate_CT(self):
         if self.mode_avg:
-            splitted_cts = split_multi_CT(self.paths['CT_base_path'], imgs_per_angle=4)
+
             self.CT_data['avg_num'] = self.interpolate_avg_num()
+
+            splitted_cts = avg_multi_img_CT(self, self.paths['CT_imgs'], imgs_per_angle=4)
+
+
         # die interpolation muss vor der CT auswertung gemacht werden. Die Auswertung muss schon 'wissen' wie viel
         # sie pro winkelschritt avaregen soll.
 
@@ -401,23 +389,15 @@ class Activator:
 
 
     def interpolate_avg_num(self):
-        fCT_imgs = [f for f in os.listdir(self.paths['fCT_imgs']) if os.path.isfile(os.path.join(self.paths['fCT_imgs'], f))]
-        fCT_imgs = sorted(fCT_imgs)
-
         fCT_avg = self.fCT_data['avg_num']
         fCT_theta = self.fCT_data['theta']
 
         step = 360 / 1500
-        list_angles = []
+        CT_theta = np.arange(0, 360, step)
+        CT_avg = hlp.nearest_interp(xi=CT_theta, x=fCT_theta, y=fCT_avg)
 
-        old_step = 0
-        for i in range(1500):
-            if i == 0:
-                new_step = 0
-            else:
-                new_step = old_step + step
-            list_angles.append(round(new_step, 2))
-            old_step = new_step
+        return CT_avg
+
 
 
 

@@ -252,11 +252,12 @@ def calc_T(data, refs, darks):
 
 class ImageLoader:
     def __init__(self, used_SCAP: bool = True, remove_lines: bool = True, load_px_map: bool = False,
-                 stack_range: tuple = None, crop_area: tuple = None):
+                 crop_area: tuple = None):
         """
         ATTENTION:
         please note ref images MUST be loaded as first image stack! Since the ratio between median intensity of the
         stack and the outlier pixel rows is most significant at ref images.
+
         :param used_SCAP: set value to True if you captured your images with the x-ray source in-house software SCAP.
         This is important, since captured images with 'Metric_Steuerung' Software are flipped and rotated in compare to
         SCAP images.
@@ -282,7 +283,6 @@ class ImageLoader:
         self.idxs = []
 
         self.bad_px_map = load_px_map
-        self.stack_range = stack_range
 
         self.t_exp = None
 
@@ -296,8 +296,8 @@ class ImageLoader:
             self.filterer = ImageSeriesPixelArtifactFilterer()
 
 
-    def load_stack(self, path):
-        if not self.stack_range:
+    def load_stack(self, path, stack_range = None):
+        if not stack_range:
             self.images = file.volume.Reader(path,
                                              mode='raw',
                                              shape=self.shape,
@@ -310,7 +310,7 @@ class ImageLoader:
                                              shape=self.shape,
                                              header=self.header,
                                              crops=self.view,
-                                             dtype='<u2').load_range((self.stack_range[0], self.stack_range[-1]))
+                                             dtype='<u2').load_range((stack_range[0], stack_range[-1]))
         if self.remove_lines:
             self.images = self.remove_detector_lines(self.images)
         return self.images

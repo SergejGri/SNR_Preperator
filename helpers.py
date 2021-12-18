@@ -128,33 +128,6 @@ def poly_2(x, a, b, c):
     return a * x ** 2 + b * x + c
 
 
-def poly_fit(var_x, var_y, steps, order):
-    if order == 2:
-        def func_poly(x, a, b, c): return a * x ** 2 + b * x + c
-        a, b, c = np.polyfit(var_x, var_y, deg=2)
-        x = np.linspace(var_x[0], var_x[-1], steps)
-        y = func_poly(x, a, b, c)
-        return x, y
-    if order == 3:
-        def func_poly(x, a, b, c, d): return a * x ** 3 + b * x**2 + c*x + d
-        a, b, c, d = np.polyfit(var_x, var_y, deg=3)
-        x = np.linspace(var_x[0], var_x[-1], steps)
-        y = func_poly(x, a, b, c, d)
-        return x, y
-    if order == 4:
-        def func_poly(x, a, b, c, d, e): return a * x ** 4 + b * x**3 + c*x**2 + d*x + e
-        a, b, c, d, e = np.polyfit(var_x, var_y, deg=4)
-        x = np.linspace(var_x[0], var_x[-1], steps)
-        y = func_poly(x, a, b, c, d, e)
-        return x, y
-    if order == 9:
-        def func_poly(x, a, b, c, d, e, f, g, h, i, j): return a*x**9 + b*x**8 + c*x**7 + d*x**6 + e*x**5 + f*x**4 + g*x**3 + h*x**2 + i*x + j
-        a, b, c, d, e, f, g, h, i, j = np.polyfit(var_x, var_y, deg=9)
-        x = np.linspace(var_x[0], var_x[-1], steps)
-        y = func_poly(x, a, b, c, d, e, f, g, h, i, j)
-        return x, y
-
-
 def sin(x, a, b, c):
     return a + b * np.sin(x*np.pi/180.0 + c)
 
@@ -181,6 +154,11 @@ def find_nearest(array, value):
     return array[idx], idx
 
 
+def nearest_interp(xi, x, y):
+    idx = np.abs(x - xi[:, None])
+    return y[idx.argmin(axis=1)]
+
+
 def merge_v1D(*cols):
     arr = np.vstack(cols).T
     arr.astype(float)
@@ -192,23 +170,28 @@ def round_to_nearest_hundred(btexp, num):
     avg_num = int(num / btexp)
     return avg_num
 
-def extract_angle(num_of_projections, img_name):
+def extract_angle(name, num_of_projections):
     """
     :param num_len: num of integers in the naming convention of the image e.g. img_0017
     """
-
-    img_num_str = re.findall(r'[0-9]{4,10}', img_name)[0]
-
-    num = float(img_num_str)
-    if num < 1:
-        num = 0.0
-    else:
-        img_num_str = img_num_str.lstrip('0')
-        num = int(img_num_str)
-
+    num = extract_iternum_from_file(name=name, transform=True)
     angle = (360/num_of_projections) * num
-
     return round(angle, 2)
+
+
+def extract_iternum_from_file(name, transform=False):
+    img_num_str = re.findall(r'[0-9]{4,10}', name)[0]
+    num = int(img_num_str)
+    if not transform:
+        return img_num_str
+    else:
+        if num < 1:
+            num = 0
+        else:
+            img_num_str = img_num_str.lstrip('0')
+            num = int(img_num_str)
+        return num
+
 
 def strip_chars(char, num):
     pass
