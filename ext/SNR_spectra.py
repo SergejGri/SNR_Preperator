@@ -347,17 +347,44 @@ class SNR_Evaluator():
         :param save_path:   path to save fig to (defaults to .pdf)
         :return:
         '''
+
+        # ========== not default stuff
+        pgf_with_latex = {  # setup matplotlib to use latex for output
+            "pgf.texsystem": "pdflatex",  # change this if using xetex or lautex
+            "text.usetex": True,  # use LaTeX to write all text
+            "font.family": "serif",
+            "font.serif": [],  # blank entries should cause plots
+            "font.sans-serif": [],  # to inherit fonts from the document
+            "font.monospace": [],
+            "axes.labelsize": 15,  # LaTeX default is 10pt font.
+            "font.size": 15,
+            "legend.fontsize": 12,  # Make the legend/label fonts
+            "xtick.labelsize": 12,  # a little smaller
+            "ytick.labelsize": 12,
+            "pgf.preamble": "\n".join([r"\usepackage{libertine}",
+                                       r"\usepackage[libertine]{newtxmath}",
+                                       r"\usepackage{siunitx}"
+                                       r"\usepackage[utf8]{inputenc}",
+                                       r"\usepackage[T1]{fontenc}"])
+        }
+        mpl.use("pgf")
+        mpl.rcParams.update(pgf_with_latex)
+
+        # =================================================================================================
+
         if label is None:
             label = self.label
         if label is None:
             raise ValueError('no label given')
-        xlabel = f'spatial size [{self.properties["pixelsize_units"]}]'
+        # xlabel = f'spatial size [{self.properties["pixelsize_units"]}]' default
+        xlabel = r'\textbf{spatial size} ($\mu m$)'
 
         if figure is None:
             if only_snr:
                 figure, ax = plt.subplots(1, 1, figsize=(5, 5))
                 ax.set_xlabel(xlabel)
-                ax.set_ylabel('SNR')
+                # ax.set_ylabel('SNR')  # default
+                ax.set_ylabel(r'\textbf{SNR}')
             else:
                 figure = plt.figure(constrained_layout=True, figsize=(10, 5))
                 figure.tight_layout(rect=(0, 0, 1, 1), pad=0.05)
@@ -397,8 +424,8 @@ class SNR_Evaluator():
         if save_path is not None:
             if '.' not in save_path:
                 save_path += '.pdf'
-            figure.savefig(save_path)
-
+            figure.savefig(save_path, bbox_inches='tight', dpi=600)
+            #figure.savefig(save_path) default
 
 def estimate_SNR(images: np.ndarray, refs: np.ndarray = None, darks: np.ndarray = None,
                  u_nbins='auto', series_filterer=None, apply_log=True, save_path=None,
@@ -607,4 +634,4 @@ def apply_u_scale(ax, pixelsize, units='px', max_val=0.5, num_ticks=9, labelever
     ax.set_xticklabels(xticklabels)
     if units is not None:
         ax.set_xlabel(f'spatial size [{units}]')
-    ax.grid()
+    #ax.grid()

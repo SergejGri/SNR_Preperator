@@ -1,8 +1,6 @@
 import re
-import matplotlib.pyplot as plt
+import os
 import numpy as np
-from scipy.ndimage import map_coordinates as sci
-
 from ext import file
 
 
@@ -82,11 +80,9 @@ def extract_kv(dfile):
 
 def extract(what: str, dfile: str):
     '''
-    :param param:   Two cases are possible: param='d' or param='kv'
-    :param dfile:   must be a path or file name with a naming convention which contains units for extraction.
+    :param what:    Three cases are possible: what='d', what='kv' or what='angl'
+    :param dfile:   must be a string with a naming convention which contains units ('d' or 'kV') for extraction.
     '''
-
-    d_str = ''
     if what == 'kv':
         d_str = re.findall("([0-9]+)kV", dfile)
         if len(d_str) < 1:
@@ -103,6 +99,18 @@ def extract(what: str, dfile: str):
             return int(d_str[0])
         else:
             return int(d_str)
+    elif what == 'angl':
+        d_str = re.findall("([0-9]+)angle", dfile)
+        if len(d_str) < 1:
+            d_str = re.findall("([0-9]+)_angle", dfile)
+        if len(d_str) < 1:
+            d_str = re.findall("([0-9]+)-angle", dfile)
+        if is_list(d_str):
+            return int(d_str[0])
+        else:
+            return int(d_str)
+    else:
+        return None
 
 
 def is_list(expression):
@@ -112,8 +120,11 @@ def is_list(expression):
         return False
 
 
-def load_bad_pixel_map(crop):
-    path_to_map = r'\\132.187.193.8\junk\sgrischagin\BAD-PIXEL-bin1x1-scans-MetRIC_SCAP_IMGS.tif'
+def load_bad_pixel_map(crop, scap):
+    if scap:
+        path_to_map = r'\\132.187.193.8\junk\sgrischagin\BAD-PIXEL-bin1x1-MetRIC-SCAP.tif'
+    else:
+        path_to_map = r'\\132.187.193.8\junk\sgrischagin\BAD-PIXEL-bin1x1-MetRIC.tif'
     _crop = slice(crop[0][0], crop[0][1]), slice(crop[1][0], crop[1][1])
     bad_pixel_map = file.image.load(path_to_map)[_crop]
     print(f'\n{path_to_map} loaded as bad pixel map. \n')
@@ -125,12 +136,11 @@ def linear_f(x, m, t):
 
 
 def poly_2(x, a, b, c):
-    return a * x ** 2 + b * x + c
+    return a*x**2 + b*x + c
 
 
 def sin(x, a, b, c):
     return a + b * np.sin(x*np.pi/180.0 + c)
-
 
 
 def find_max(array):
@@ -166,14 +176,12 @@ def merge_v1D(*cols):
 
 
 def round_to_nearest_hundred(btexp, num):
-    num = round(num / 100) * 100
-    avg_num = int(num / btexp)
+    num = round(num, 1)
+    avg_num = round(num / btexp)
     return avg_num
 
+
 def extract_angle(name, num_of_projections):
-    """
-    :param num_len: num of integers in the naming convention of the image e.g. img_0017
-    """
     num = extract_iternum_from_file(name=name, transform=True)
     angle = (360/num_of_projections) * num
     return round(angle, 2)
@@ -193,46 +201,17 @@ def extract_iternum_from_file(name, transform=False):
         return num
 
 
-def strip_chars(char, num):
-    pass
-
+def gimme_theta(path_ct):
+    all_imgs = [f for f in os.listdir(path_ct) if os.path.isfile(os.path.join(path_ct, f))]
+    all_imgs = sorted(all_imgs)
+    istep = 360 / len(all_imgs)
+    theta = np.arange(0, 360, istep)
+    return theta
 
 
 def find_roots(x, y):
     s = np.abs(np.diff(np.sign(y))).astype(bool)
     return x[:-1][s] + np.diff(x)[s] / (np.abs(y[1:][s] / y[:-1][s]) + 1)
-
-
-def line_intersection(line1, line2):
-    L1x1 = 0.0
-    L1x2 = 180.0
-    L1y1 = 0
-    L1y2 = 0
-
-    L2x1 = 0
-    L2x2 = 0
-    L2y1 = 0
-    L2y2 = 1
-
-    A = [L1x1, L1y1]
-    B = [L1x2, L1y2]
-    C = [L2x1, L2y1]
-    D = [L2x2, L2y2]
-
-    xdiff = (line1[0][0] - line1[1][0], line2[0][0] - line2[1][0])
-    ydiff = (line1[0][1] - line1[1][1], line2[0][1] - line2[1][1])
-
-    def det(a, b):
-        return a[0] * b[1] - a[1] * b[0]
-
-    div = det(xdiff, ydiff)
-    if div == 0:
-        raise Exception('lines do not intersect')
-
-    d = (det(*line1), det(*line2))
-    x = det(d, xdiff) / div
-    y = det(d, ydiff) / div
-    return x, y
 
 
 def remove_duplicates(arr):
@@ -275,17 +254,3 @@ def prep_curve(x, y):
     xn = np.interp(t, u, x)
     yn = np.interp(t, u, y)
     return xn, yn
-
-
-
-
-#def d_curve_T_intercept(self, curve):
-#    idx = None
-#    deltas = [0.0, 0.0000001, 0.000001]
-#    for delta in deltas:
-#        nearest_val, idx = h.find_nearest(curve[:, 0], self.T_min + delta)
-#        if idx is not None:
-#            self.intercept_found = True
-#            break
-#    self.intercept['x'] = self.T_min
-#    self.intercept['y'] = curve[:, 1][idx]

@@ -7,19 +7,22 @@ from numpy.polynomial import polynomial as P
 
 
 class SNRMapGenerator:
-    def __init__(self, scanner, kv_filter: list = None):
+    def __init__(self, p_snr, p_T, ds, kv_filter: list = None):
         """
         :param path_snr:
         :param path_T:
         :param path_fin:
         :param kv_filter:
         """
-        self.scanner = scanner
-        self.path_snr = self.scanner.p_SNR_files
-        self.path_T = self.scanner.p_T_files
+        #self.scanner = scanner
+        #self.path_snr = self.scanner.p_snr
+        #self.path_T = self.scanner.p_T
+        self.path_snr = p_snr
+        self.path_T = p_T
         self.path_fin = os.path.join(os.path.dirname(self.path_T), 'MAP')
-
-        self.ds = self.scanner.files['ds']
+        self.files = {'snr': None}
+        #self.ds = self.scanner.files['ds']
+        self.ds = ds
         self.kVs = self.used_voltages(filter=kv_filter)
         self.str_d = None
         self.T_min = None
@@ -51,10 +54,9 @@ class SNRMapGenerator:
 
             kV, T = self.get_T_data()
             SNR = self.get_SNR_data(int_d, self.ROI['lb'], self.ROI['rb'])
-            self.curves[float(f'{int_d}')]['raw_data'] = self.merge_data(kV, T, SNR)
+            self.curves[float(f'{int_d}')]['raw_data'] = hlp.merge_v1D(kV, T, SNR)
 
-        # 1) go through all curves and
-        # 2) create virtual data points for SNR(T) curves between measured thicknesses
+        # 1) create virtual data points for SNR(T) curves between measured thicknesses
         self.create_raw_grid()
         for d in self.curves:
             full_curve = self.create_kv_grid(d)
@@ -65,7 +67,6 @@ class SNRMapGenerator:
         self.write_curve_files(self.curves)
 
         return self.MAP_object
-
 
 
     def get_T_data(self):
@@ -79,11 +80,12 @@ class SNRMapGenerator:
 
         return data_T[:, 0].T, data_T[:, 1].T
 
+
     def get_SNR_data(self, d, lb, rb):
         kvs = []
         snr_means = []
-
-        for file in self.scanner.files['SNR']:
+        self.collect_snr_files()
+        for file in self.files['snr']:
             _d = hlp.extract(what='d', dfile=file)
             if _d == d:
                 kV, mean_SNR = self.calc_avg_SNR(file, lb, rb)
@@ -92,17 +94,20 @@ class SNRMapGenerator:
                 else:
                     kvs.append(kV)
                     snr_means.append(mean_SNR)
-
         kv_arr = np.asarray(kvs).T
         snr_arr = np.asarray(snr_means).T
         arr = np.vstack((kv_arr, snr_arr)).T
         arr = arr[arr[:, 0].argsort()]
         return arr[:, 1]
 
+
     def calc_avg_SNR(self, file, lb, rb):
-        # read the file which is produced by the script SNR_Spectra.py
-        # interpolate between data points, because for initial MAP there are to little data points between the first and
-        # second entry. The data points are not equally distributed.
+        '''
+        function reads .txt file which is produced by the script 'SNR_Spectra.py' and interpolates between the usually
+        coarse data points. Especially in the region of small frequencies (data points are not equally distributed).
+        Format of the file content must be like:
+        column1: spatial frequency, column2: SNR, column3: signal power spectrum, column4: noise power spectrum
+        '''
         kv = hlp.extract(what='kv', dfile=file)
         data = np.genfromtxt(file, skip_header=3)
         data = self.interpolate_data(data)
@@ -114,10 +119,6 @@ class SNRMapGenerator:
         mean_SNR = data[:, 1].mean()
         return kv, mean_SNR
 
-    def merge_data(self, *cols):
-        d_curve = np.vstack((cols)).T
-        d_curve.astype(float)
-        return d_curve
 
     def interpolate_data(self, data, idx: tuple=None):
         """
@@ -167,12 +168,10 @@ class SNRMapGenerator:
         return kvs
 
 
-
     def create_kv_grid(self, d):
         """
         the kv_
         """
-
         kv_step_width = 0.5
 
         _c = self.curves[float(f'{d}')]['raw_data']
@@ -180,7 +179,6 @@ class SNRMapGenerator:
         grid = np.empty(shape=3)
 
         for i in range(len(self.kVs) - 1):
-
             # TODO: change the selection of kvs depending on the curve
             kv0 = int(self.kVs[i])
             kv1 = int(self.kVs[i + 1])
@@ -189,7 +187,6 @@ class SNRMapGenerator:
             n = int(n)
             row0 = _c[kV == kv0]
             row1 = _c[kV == kv1]
-
             p0 = [row0[:, 1][0], row0[:, 2][0]]    # extract [T0, SNR0] and [T1, SNR1] for triangle
             p1 = [row1[:, 1][0], row1[:, 2][0]]
 
@@ -200,7 +197,6 @@ class SNRMapGenerator:
             grid = np.vstack((grid, kvs_vals))
 
         # fine tune new curve -> find duplicates and delete them
-
         grid = grid[1:]
         grid = np.unique(grid, axis=0)
 
@@ -215,21 +211,23 @@ class SNRMapGenerator:
         if 180.0 < np.max(kv_steps_full):
             val, idx = hlp.find_nearest(kv_steps_full, 180)
             kv_steps_full = kv_steps_full[:idx+1]
-        kv_grid = self.merge_data(kv_steps_full, new_x_axis, semi_fit_SNR, fit_new_axis)
 
+        kv_grid = hlp.merge_v1D(kv_steps_full, new_x_axis, semi_fit_SNR, fit_new_axis)
         return kv_grid
 
 
     def create_raw_grid(self):
-        d_gap = 0.1
-        temp_curves = {}
+        '''
 
+
+        '''
+        d_gap = 0.1
         for i in range(len(self.ds)-1):
             d1 = self.ds[i]
             d2 = self.ds[i+1]
             sub_ds = np.arange(d1, d2, d_gap)[1:]   # calc. num of curves between d1 and d2
-
             c1 = self.curves[d1]['raw_data']
+            kv = c1[:, 0]
             c2 = self.curves[d2]['raw_data']
 
             raw_virtual_points = self.data_points_interpolation(sub_ds=sub_ds, curve1=c1, curve2=c2)
@@ -239,32 +237,19 @@ class SNRMapGenerator:
                 snr = raw_virtual_points[d]['Y']
 
                 self.curves[d] = {}
-                self.curves[d]['raw_data'] = self.merge_data(c1[:, 0], T, snr)
-
+                self.curves[d]['raw_data'] = hlp.merge_v1D(kv, T, snr)
         self.curves = dict(sorted(self.curves.items()))
-
-
-
-
-
-    def update_map(self):
-        self.MAP_object = self.MAP_object
-
-
-
-
-
-
 
 
     def data_points_interpolation(self, sub_ds: list, curve1: np.asarray, curve2: np.array):
         """
         takes a list of thicknesses, two curves and calculates equidistant points between measured data points. I call
         these interpolated data points 'virtual' points. This is necessary to get a voltage values distribution ALONG
-        the SNR curve:
-        !!!
-        np.linspace(kv[0], kv[-1], num_of_points) != np.linspace(T[0], T[-1], num_of_points)
-        !!!
+        the SNR curve, since np.linspace(kv[0], kv[-1], num_of_points) != np.linspace(T[0], T[-1], num_of_points) !!!
+
+        :param sub_ds:      list of thicknesses between actual measured thicknesses (interpolated thicknesses)
+        :param curve1:      first curve (upper bound) for calculation of virtual curves
+        :param curve2:      second curve (lower bound) for calculation of virtual curves
         """
 
         raw_virtual_points = {}
@@ -298,38 +283,12 @@ class SNRMapGenerator:
         return raw_virtual_points
 
 
-
-
-
-
-
-
-
-
-
-    def reset(self):
-        self.str_d = {}
-        self.curves = {}
-
-
     def write_curve_files(self, curves):
+        if not os.path.isdir(self.path_fin):
+            os.makedirs(self.path_fin)
         for c in curves:
             c = int(c)
-            if not os.path.isdir(self.path_fin):
-                os.makedirs(self.path_fin)
             np.savetxt(os.path.join(self.path_fin, f'{c}mm_raw-data.csv'), self.curves[c]['raw_data'], delimiter=',')
-
-
-    def pick_value(self):
-        pass
-
-
-    def units_converter(self, val):
-        """
-        :param:
-        """
-        val = val * 10 ** (-6)
-        return val
 
 
     def check_range(self, rng):
@@ -343,15 +302,29 @@ class SNRMapGenerator:
         self.ROI['lb'] = lb
         self.ROI['rb'] = rb
 
-    def poly_fit(self, var_x, var_y, steps):
-        a, b, c = np.polyfit(var_x, var_y, deg=2)
-        x = np.linspace(var_x[0], var_x[-1], steps)
-        y = self.func_poly(x, a, b, c)
-        return x, y
 
-    @staticmethod
-    def func_poly(x, a, b, c):
-        return a * x ** 2 + b * x + c
+    def reset_status(self):
+        self.str_d = {}
+        self.curves = {}
+
+
+    def update_map(self):
+        self.MAP_object = self.MAP_object
+
+
+
+    def collect_snr_files(self):
+        loc = []
+        for _dir in os.listdir(self.path_snr):
+            _subdir = os.path.join(self.path_snr, _dir)
+            for file in os.listdir(_subdir):
+                if file.endswith('.txt'):
+                    d = hlp.extract(what='d', dfile=file)
+                    if d in self.ds:
+                        loc.append(os.path.join(_subdir, file))
+        self.files['snr'] = loc
+
+
 
     @staticmethod
     def get_properties(file):

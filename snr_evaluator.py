@@ -4,18 +4,146 @@ import os
 import gc
 import helpers as hlp
 import numpy as np
-import matplotlib.pyplot as plt
-from ext import file
+from map_generator import SNRMapGenerator
+from scanner import Scanner
 from ext.SNR_spectra import SNR_Evaluator, ImageSeriesPixelArtifactFilterer
 
 DETAILED = True
 
 
-class SNRPrepperator:
-    def __init__(self, path: str, path_result: str, magnification: float, image_holder, pixel_size_units: str = None,
-                 watt: float = None, detector_pixel: float = None, smallest_size: float = None, nbins: int = None,
-                 ex_kvs: list = None, ex_ds: list = None, only_snr: bool = False, snr_result_name: str = None,
-                 trans_result_name: str = None):
+class SNREvaluator:
+    def __init__(self, image_loader, watt: float, magnification: float, voltage: int, btexp: float, only_snr: bool,
+                 pixel_size_units: str = None, detector_pixel: float = None, snr_result_name: str = None,
+                 T_result_name: str = None):
+        self.loader = image_loader
+        self.M = magnification
+        self.watt = watt
+        self.voltage = voltage
+        self.btexp = btexp
+        self.EVA = SNR_Evaluator()
+        self.filterer = ImageSeriesPixelArtifactFilterer()
+        #self.scanner = Scanner()
+        self.only_snr = only_snr
+
+        if detector_pixel is not None:
+            self.det_pixel = detector_pixel
+        else:
+            self.det_pixel = 74.8
+
+        self.pixel_size = self.det_pixel / self.M
+        if pixel_size_units is not None:
+            self.pixel_size_units = pixel_size_units
+        else:
+            self.pixel_size_units = '$\mu m$'
+
+        self.c_date = datetime.datetime.now()
+        if snr_result_name is not None:
+            self.SNR_name = snr_result_name
+        else:
+            self.SNR_name = f'{self.c_date.year}-{self.c_date.month}-{self.c_date.day}_SNR'
+        if T_result_name is not None:
+            self.T_name = T_result_name
+        else:
+            self.T_name = f'{self.c_date.year}-{self.c_date.month}-{self.c_date.day}_T'
+
+
+    def calc_snr(self, images: np.ndarray, refs: np.ndarray, darks: np.ndarray, texp, px_size, px_units, filterer):
+        self.EVA.estimate_SNR(images, refs, darks, exposure_time=self.btexp, pixelsize=self.pixel_size,
+                              pixelsize_units=self.pixel_size_units, series_filterer=self.filterer,
+                              save_path=os.path.join(self.SNR_name, f'SNR(x)_{self.watt}W_{self.voltage}kV_texp{self.btexp}s'))
+        return self.EVA
+
+
+    def calc_T(self, data, refs, darks):
+        darks_avg = np.nanmean(darks, axis=0)
+        refs_avg = np.nanmean(refs, axis=0)
+        data_avg = np.nanmean(data, axis=0)
+        img = (data_avg - darks_avg) / (refs_avg - darks_avg)
+        h = 20
+        w = 20
+        median = []
+        for i in range(0, img.shape[0] - h, h):
+            for j in range(0, img.shape[1] - w, w):
+                rect = img[i:i + h, j:j + w]
+                medn = np.median(rect)
+                median.append(medn)
+        transmission_min = min(median)
+        del img
+        gc.collect()
+        return transmission_min
+
+
+    def snr_3D(self, result_path, data: np.ndarray, refs: np.ndarray, darks: np.ndarray, exposure_time, angle):
+        res_str = f'SNR-{self.watt}W-{self.voltage}kV-@{angle}angle'
+        results = []
+        figure = None
+        EVA = self.EVA
+        texp = round(exposure_time * self.btexp, 3)
+
+
+        T_min = self.calc_T(data, refs, darks)
+        file = f'angle-{angle}.csv'
+        _path_T = os.path.join(result_path, file)
+        with open(os.path.join(_path_T), 'a+') as f:
+            f.write('{};{}\n'.format(angle, T_min))
+            f.close()
+
+        sv_str = os.path.join(result_path, res_str)
+        EVA.estimate_SNR(data, refs, darks, pixelsize=74.8, pixelsize_units='$\mu m$', exposure_time=texp,
+                              series_filterer=self.filterer, save_path=os.path.join(result_path, res_str))
+        figure = EVA.plot(figure, f'{angle}')
+        results.append(EVA)
+        EVA.finalize_figure(figure, save_path=os.path.join(result_path, f'angle-{angle}.pdf'))
+
+
+        #agl = hlp.extract(what='angl', dfile=f)
+        kv, snr = self.calc_avg_SNR(file=f, lb=lb, rb=rb)
+
+        return T_min, snr
+
+
+
+    def get_SNR_data(self, path_f, d, lb, rb):
+        kvs = []
+        snr_means = []
+
+        list_files = [f for f in os.listdir(path_f) if os.path.isfile(os.path.join(path_f, f))]
+
+        for file in list_files:
+            _d = hlp.extract(what='angl', dfile=file)
+            if _d == d:
+                kV, mean_SNR = self.calc_avg_SNR(file, lb, rb)
+                if kV in self.kV_filter:
+                    del kV, mean_SNR
+                else:
+                    kvs.append(kV)
+                    snr_means.append(mean_SNR)
+
+        kv_arr = np.asarray(kvs).T
+        snr_arr = np.asarray(snr_means).T
+        arr = np.vstack((kv_arr, snr_arr)).T
+        arr = arr[arr[:, 0].argsort()]
+        return arr[:, 1]
+
+
+
+
+    def write_T_data(self, path_T, d, T, voltage):
+        file_l = f'{d}_mm.csv'
+        if DETAILED:
+            print(f'WRITING FILES {d} mm')
+
+        _path_T = os.path.join(path_T, file_l)
+        with open(os.path.join(_path_T), 'a+') as f_l:
+            f_l.write('{};{}\n'.format(voltage, T))
+            f_l.close()
+
+
+
+
+class StepWedgeEvaluator(SNREvaluator):
+
+    def __init__(self, path: str, path_result: str, ex_kvs: list = None, ex_ds: list = None, only_snr: bool = False):
         """
         see __init__() for the individual types of expected inputs of parameters
         :param img_shape: (detector height, detector width) in pixels
@@ -24,7 +152,7 @@ class SNRPrepperator:
         :param crop_area: (axis=0/stack size)(axis=1/height)(axis=2/width) pass for each axis the sizes for the crop area
                 for the desired area you want to evaluate
         :param watt: adjusted watts for the measurement
-        :param t_exp: adjusted exposure time for the measurement in ms
+        :param btexp: adjusted exposure time for the measurement in ms
         :param magnification: adjusted magnification for the measurement
         :param detector_pixel: pixel size of the detector. If no value is passed, a default value of 74.8 (current value
                 of the MetRIC detector) will be used.
@@ -40,33 +168,9 @@ class SNRPrepperator:
         :param snr_result_name: your desired name for SNR results
         :param trans_result_name: your desired name for Transmission results
         """
+        super(StepWedgeEvaluator, self).__init__()
         self.path_base = path
         self.path_result = path_result
-        self.img_holder = image_holder
-        self.M = magnification
-
-        if detector_pixel is not None:
-            self.det_pixel = detector_pixel
-        else:
-            self.det_pixel = 74.8
-
-        self.pixel_size = self.det_pixel / self.M
-        if pixel_size_units is not None:
-            self.pixel_size_units = pixel_size_units
-        else:
-            self.pixel_size_units = '$\mu m$'
-
-        if nbins is not None:
-            self.nbins = nbins
-        else:
-            self.nbins = 'auto'
-
-        if watt is not None:
-            self.watt = watt
-        else:
-            self.watt = 'unknown'
-
-        self.x_min = smallest_size
 
         self.ex_kvs = []
         if ex_kvs is not None:
@@ -80,19 +184,12 @@ class SNRPrepperator:
         if self.only_snr:
             print('only_snr = True --> No Transmission calc.')
 
-        self.c_date = datetime.datetime.now()
-        if snr_result_name is not None:
-            self.SNR_name = snr_result_name
-        self.SNR_name = f'{self.c_date.year}-{self.c_date.month}-{self.c_date.day}_SNR'
-        if trans_result_name is not None:
-            self.T_name = trans_result_name
-        self.T_name = f'{self.c_date.year}-{self.c_date.month}-{self.c_date.day}_T'
-
-    def __call__(self):
-        self.calc_2D_snr(properties=self.get_properties())
 
 
-    def calc_2D_snr(self, properties):
+
+    def snr_2D_stepwedge(self):
+        properties = self.get_properties()
+
         for dir in properties:
             voltage = hlp.extract(what='kv', dfile=dir)
 
@@ -125,7 +222,7 @@ class SNRPrepperator:
                 imgs_data = self.img_holder.load_stack(path=p_imgs)
 
                 if not self.only_snr:
-                    T = calc_T(imgs_data, imgs_refs, imgs_darks)
+                    T = self.calc_T(imgs_data, imgs_refs, imgs_darks)
                     self.write_T_data(psave_T, _d, T, voltage)
 
                 SNR_eval, figure = self.evaluate_snr(snr_obj=SNR_eval, path_save_SNR=psave_SNR, fig=figure,
@@ -135,7 +232,6 @@ class SNRPrepperator:
                                                      _d=_d, kV=voltage, t_exp=t_exp,
                                                      filterer=self.img_holder.filterer)
                 figure = SNR_eval.plot(figure, f'{_d} mm')
-
                 results.append(SNR_eval)
 
                 if DETAILED:
@@ -148,7 +244,6 @@ class SNRPrepperator:
 
     def get_properties(self):
         directories = {}
-
         for dirr in os.listdir(self.path_base):
             if os.path.isdir(os.path.join(self.path_base, dirr)) and 'kV' in dirr:
                 kv = hlp.extract(what='kv', dfile=dirr)
@@ -173,7 +268,6 @@ class SNRPrepperator:
                         pass
                     else:
                         subdirs.append(sdir)
-
         try:
             subdirs = [int(x) for x in subdirs]
             subdirs.sort()
@@ -191,21 +285,9 @@ class SNRPrepperator:
             print(f'WRITING FILES {d} mm')
 
         _path_T = os.path.join(path_T, file_l)
-
         with open(os.path.join(_path_T), 'a+') as f_l:
             f_l.write('{};{}\n'.format(voltage, T))
             f_l.close()
-
-
-    def evaluate_snr(self, snr_obj, path_save_SNR, fig, data, refs, darks, _d, kV, t_exp, filterer):
-
-        snr_obj.estimate_SNR(data, refs, darks, exposure_time=t_exp,
-                             pixelsize=self.pixel_size, pixelsize_units=self.pixel_size_units,
-                             series_filterer=filterer, u_nbins=self.nbins,
-                             save_path=os.path.join(path_save_SNR,
-                                                    f'SNR(x)_{self.watt}W_{kV}kV_{_d}mm_texp{t_exp}s'))
-
-        return snr_obj, fig
 
 
     @staticmethod
@@ -219,154 +301,11 @@ class SNRPrepperator:
             ref_imgs = os.path.join(path, dir, 'refs')
         return imgs, ref_imgs, dark_imgs
 
+
     @staticmethod
     def filter_area_to_t(thick):
         return int(thick)
 
-    def constrains(self):
-        pass
-
-
-def calc_T(data, refs, darks):
-    darks_avg = np.nanmean(darks, axis=0)
-    refs_avg = np.nanmean(refs, axis=0)
-    data_avg = np.nanmean(data, axis=0)
-    img = (data_avg - darks_avg) / (refs_avg - darks_avg)
-
-    transmission_min = 0
-    h = 20
-    w = 20
-    median = []
-    for i in range(0, img.shape[0]-h, h):
-        for j in range(0, img.shape[1]-w, w):
-            rect = img[i:i+h, j:j+w]
-            medn = np.median(rect)
-            median.append(medn)
-    transmission_min = min(median)
-    del img
-    gc.collect()
-    return transmission_min
-
-
-
-
-class ImageLoader:
-    def __init__(self, used_SCAP: bool = True, remove_lines: bool = True, load_px_map: bool = False,
-                 crop_area: tuple = None):
-        """
-        ATTENTION:
-        please note ref images MUST be loaded as first image stack! Since the ratio between median intensity of the
-        stack and the outlier pixel rows is most significant at ref images.
-
-        :param used_SCAP: set value to True if you captured your images with the x-ray source in-house software SCAP.
-        This is important, since captured images with 'Metric_Steuerung' Software are flipped and rotated in compare to
-        SCAP images.
-        :param remove_lines: if is True, detector slice line will be removed.
-        """
-        self.used_SCAP = used_SCAP
-        self.remove_lines = remove_lines
-
-        self.header = 2048
-        self.shape = (1536, 1944)
-        if self.used_SCAP:
-            self.header = 0
-            self.shape = (1944, 1536)
-        self.images = None
-
-        if crop_area is not None:
-            self.crop_area = crop_area
-            self.view = (0, 0), *self.crop_area
-        else:
-            self.crop_area = (None, None)
-            self.view = (None, None, None)
-
-        self.idxs = []
-
-        self.bad_px_map = load_px_map
-
-        self.t_exp = None
-
-        self.modified_px_map = None
-        self.new_img_shape = None
-
-        if self.bad_px_map:
-            self.px_map = hlp.load_bad_pixel_map(crop=self.crop_area)
-            self.filterer = ImageSeriesPixelArtifactFilterer(bad_pixel_map=self.px_map)
-        else:
-            self.filterer = ImageSeriesPixelArtifactFilterer()
-
-
-    def load_stack(self, path, stack_range = None):
-        if not stack_range:
-            self.images = file.volume.Reader(path,
-                                             mode='raw',
-                                             shape=self.shape,
-                                             header=self.header,
-                                             crops=self.view,
-                                             dtype='<u2').load_all()
-        else:
-            self.images = file.volume.Reader(path,
-                                             mode='raw',
-                                             shape=self.shape,
-                                             header=self.header,
-                                             crops=self.view,
-                                             dtype='<u2').load_range((stack_range[0], stack_range[-1]))
-        if self.remove_lines:
-            self.images = self.remove_detector_lines(self.images)
-        return self.images
-
-
-    def remove_detector_lines(self, img_stack):
-        if len(self.idxs) < 1:
-            DEVIATION_THRESHOLD = 0.15
-
-            probe_img = img_stack[0]
-
-            if self.used_SCAP:
-                start, end = 0, probe_img.shape[1]
-            else:
-                start, end = 0, probe_img.shape[0]
-
-            line_pos = 100
-            line_plot = probe_img[line_pos-5:line_pos, start:end]
-            line_plot = np.nanmean(line_plot, axis=0)
-            line_median = np.nanmedian(line_plot)
-
-            for i in range(len(line_plot)):
-                px_val = line_plot[i]
-                ratio = abs(1 - (px_val/line_median))
-
-                if DEVIATION_THRESHOLD < ratio:
-                    self.idxs.append(i)
-
-        img_stack = np.delete(img_stack, self.idxs, axis=2)
-        if self.bad_px_map:
-            if self.px_map.shape[1] != img_stack.shape[2]: # only if the px_map was not updated yet, crop it to the new size
-                self.px_map = np.delete(self.px_map, self.idxs, axis=1)
-                self.filterer = ImageSeriesPixelArtifactFilterer(bad_pixel_map=self.px_map) # updating the filterer with new map
-        self.new_img_shape = img_stack.shape
-        return img_stack
-
-
-    def load_filterer(self):
-        if self.bad_px_map is True:
-            filterer = ImageSeriesPixelArtifactFilterer(bad_pixel_map=self.modified_px_map)
-            return filterer
-        else:
-            filterer = ImageSeriesPixelArtifactFilterer()
-            return filterer
-
-
-    def get_t_exp(self):
-        for file in os.listdir(self.path):
-            piece_l = file.split('expTime_')[1]
-            piece_r = piece_l.split('__')[0]
-            t_exp = int(piece_r)
-            self.t_exp = t_exp / 1000
-            break
-
-    def get_shape(self):
-        print((len(self.images), self.shape[0], self.shape[1]))
 
 
 def get_t_exp_old(path):
@@ -411,3 +350,8 @@ def get_voltage(dir):
     else:
         voltage = int(dir)
     return voltage
+
+
+
+
+

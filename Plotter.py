@@ -1,0 +1,230 @@
+import os
+import numpy as np
+import helpers as hlp
+import matplotlib.pyplot as plt
+from cycler import cycler
+import matplotlib.gridspec as gridspec
+
+
+class Plotter:
+    # https://stackoverflow.com/questions/64405910/matplotlib-font-common-font-with-latex
+    rc_fonts = {
+        "font.family": "serif",
+        "font.size": 20,
+        'figure.figsize': (5, 3),
+        "text.usetex": True,
+        'text.latex.preview': True,
+        'text.latex.preamble': [
+            r"""
+            \usepackage{libertine}
+            \usepackage[libertine]{newtxmath}
+            \usepackage{siunitx}
+            """],
+    }
+
+    def __init__(self):
+        self.ft_sz_size = 10
+        self.ft_sz_title = 10
+        self.plt_layout = 'tight'
+
+
+
+
+    def map_plot(self, path_result: str, object, Y_style: str = 'log', detailed: bool = False):
+        fig = plt.figure()
+        ax = fig.add_subplot()
+        roi_l = object['ROIs']['lb']
+        roi_r = object['ROIs']['rb']
+
+        for d in object['d_curves']:
+            _c_fit = object['d_curves'][d]['full']
+
+            if hlp.is_int(d) and d in object['ds']:
+                _c_data = object['d_curves'][d]['raw_data']
+                _a = 1.0
+                ax.plot(_c_fit[:, 1], _c_fit[:, 3], linestyle='-', linewidth='2', alpha=_a, label=f'{d} mm')
+                ax.scatter(_c_data[:, 1], _c_data[:, 2], marker='o', alpha=_a)
+            else:
+                _c = 'grey'
+                _a = 0.2
+                ax.plot(_c_fit[:, 1], _c_fit[:, 3], linestyle='-', linewidth='1', alpha=_a, c=_c)
+                #ax.scatter(_c_fit[:, 1], _c_fit[:, 2], marker='o', alpha=_a, s=1, c=_c)
+
+
+        ax.axvline(x=object['T_min'], color='k', linestyle='--', linewidth='1')
+        _c_U0 = object['U0_curve']['raw_data']
+        #_c_opt = object['opt_curve']['fit']
+
+        #ax.scatter(object['INTERCEPT_X'], object['INTERCEPT_Y'], marker='x', s=15, c='black')
+
+        ax.plot(_c_U0[:, 0], _c_U0[:, 1], linewidth=1.5, label='$U_{0}$ curve')
+        #ax.plot(_c_opt[:, 0], _c_opt[:, 1],linewidth=1.5, label='$U_{opt}$ curve', c='red')
+
+        ax.legend(loc="upper left")
+        ax.set_title(f'SNR MAP @ {roi_l}-{roi_r} $\mu m$')
+        ax.set_yscale(Y_style)
+        ax.set_xlabel('Transmission a.u.')
+        ax.set_ylabel('SNR/s')
+        sv_path = os.path.join(path_result, 'plots')
+        plt.tight_layout()
+        if not os.path.isdir(sv_path):
+            os.makedirs(sv_path)
+        plt.show()
+        fig.savefig(os.path.join(path_result, 'plots', f'MAP_ROI-{roi_l}-{roi_r}.pdf'), dpi=600)
+
+
+
+    def T_kv_plot(self, path_result: str, object, Y_style: str = 'log', detailed: bool = False):
+        roi_l = object['ROIs']['lb']
+        roi_r = object['ROIs']['rb']
+
+        fig = plt.figure()
+        ax = fig.add_subplot()
+
+        for d in object['d_curves']:
+
+            _c_fit = object['d_curves'][d]['full']
+            _c_data = object['d_curves'][d]['raw_data']
+
+            if hlp.is_int(d) and d in object['ds']:
+                _a = 1.0
+                ax.plot(_c_fit[:, 0], _c_fit[:, 1], linestyle='-', linewidth='2', alpha=_a, label=f'{d} mm')
+                ax.scatter(_c_data[:, 0], _c_data[:, 1], marker='o', alpha=_a)
+            else:
+                _c = 'grey'
+                _a = 0.2
+                ax.plot(_c_fit[:, 0], _c_fit[:, 1], linestyle='-', linewidth='1', alpha=_a, c=_c)
+
+        #ax.axvline(x=object['U0_val'])
+        ax.legend(loc='best')
+        ax.set_yscale(Y_style)
+        ax.set_xlabel('Voltage $[10^{3} V]$')
+        ax.set_ylabel('Transmission a.u.')
+        sv_path = os.path.join(path_result, 'plots')
+        if not os.path.isdir(sv_path):
+            os.makedirs(sv_path)
+        plt.tight_layout()
+        plt.show()
+        fig.savefig(os.path.join(path_result, 'plots', f'T_kV-{roi_l}-{roi_r}.pdf'), dpi=600)
+
+
+
+
+    def compare_fCT_CT(self, object):
+        fig, (ax1, ax2, ax3) = plt.subplots(3)
+
+        ROIl, ROIr = object.map['ROIs']['lb'], object.map['ROIs']['rb']
+
+        self.object = object
+        CT_avg = object.CT_data['avg_num']
+        CT_theta = object.CT_data['theta']
+        CT_T = object.CT_data['T']
+        CT_snr = object.CT_data['snr']
+        CT_d = object.CT_data['d']
+        CT_texp = object.CT_data['texp']
+
+        fCT_avg = object.fCT_data['avg_num']
+        fCT_theta = object.fCT_data['theta']
+        fCT_T = object.fCT_data['T']
+        fCT_snr = object.fCT_data['snr']
+        fCT_d = object.fCT_data['d']
+        fCT_texp = object.fCT_data['texp']
+
+        ax11 = ax1.twinx()
+        ax1.scatter(CT_theta, CT_avg, label='CT_avg', alpha=0.5, c='green')
+        ax11.scatter(fCT_theta, fCT_avg, label='fCT_avg', alpha=0.5, c='blue')
+        ax1.legend()
+        ax11.legend()
+        ax1.set_xlabel('Winkel $\theta [\circ]$')
+        ax1.set_ylabel('Gemittelte Projektionen')
+
+        ax2.scatter(CT_theta, CT_snr, label=f'$SNR(\theta)$', alpha=0.5, c='green')
+        ax2.scatter(fCT_theta, fCT_snr, label=f'$fSNR(\theta)$', alpha=0.5, c='blue')
+        ax2.legend()
+        ax2.set_xlabel('Winkel $\theta [\circ]$')
+        ax2.set_ylabel('SNR $\cdot s^{-1}$')
+
+        ax3.scatter(CT_theta, CT_d, label=f'CT d', alpha=0.5, c='green')
+        ax3.scatter(fCT_theta, fCT_d, label=f'fCT d', alpha=0.5, c='blue')
+        ax3.legend()
+        ax3.set_xlabel('Winkel $\theta [\circ]$')
+        ax3.set_ylabel('Berechnete Objektdicke')
+
+        plt.tight_layout()
+        plt.savefig(os.path.join(object.scanner.path_fin, 'Overview_plot_ROI{ROIl}-{ROIr}.pdf'), dpi=600)
+
+        plt.show()
+
+
+
+
+    def fit_me_for_plot(self, _c):
+        a, b, c = np.polyfit(_c[:, 1], _c[:, 2], deg=2)
+        x = np.linspace(_c[:, 1][0], _c[:, 1][-1], 141)
+        y = self.func_poly(x, a, b, c)
+        return x, y
+
+
+    def rm_underscore(self, d):
+        d = d.replace('_', ' ')
+        d = float(d)
+        return d
+
+    @staticmethod
+    def func_poly(x, a, b, c):
+        return a * x ** 2 + b * x + c
+
+
+
+def focal_point():
+    path_save = r"C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\Brennfleck"
+    if not os.path.exists(path_save):
+        os.makedirs(path_save)
+    file_1 = r"C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-09-28_Brennfleck\1W\2021-9-30_SNR\100kV\SNR_100kV_4_mm_expTime_2250.txt"
+    file_2 = r"C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-09-28_Brennfleck\6W\2021-9-30_SNR\100kV\SNR_100kV_4_mm_expTime_375.txt"
+
+    file_1 = np.genfromtxt(file_1, dtype=float, skip_header=3)
+    file_2 = np.genfromtxt(file_2, dtype=float, skip_header=3)
+
+
+    X = file_1[:, 0]
+    Y_1 = file_1[:, 1]
+    Y_2 = file_2[:, 1]
+
+    fig = plt.figure()
+    plt.semilogy(X, Y_1, label='1W $t_{exp} = 2250$ms')
+    plt.semilogy(X, Y_2, label='6W $t_{exp} = 375$ms')
+    plt.xlim(0, 0.1)
+    plt.title(f'Compare of 1W and 6W SNR/s')
+    plt.xlabel('spatial frequency')
+    plt.ylabel('SNR $\cdot s^{-1}$')
+    plt.legend()
+    plt.show()
+    fig.savefig(os.path.join(path_save, f'compare_1W_6W.pdf'), dpi=600)
+
+
+
+def get_color_ls(index):
+    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    color = colors[index%len(colors)]
+    ls = ['-', '--', ':'][(index//len(colors)) % 3]
+    return color, ls
+
+
+class TerminalColor:
+    PURPLE = '\033[95m'
+    CYAN = '\033[96m'
+    DARKCYAN = '\033[36m'
+    BLUE = '\033[94m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+    END = '\033[0m'
+
+    flat_gray = '#d3d3d3'
+    flat_red = '#D56489'
+    flat_yellow = '#ECE6A6'
+    flat_blue = '#009D9D'
+    flat_green = '#41BA90'

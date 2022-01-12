@@ -1,6 +1,5 @@
-import ext.SNR_spectra
-from snr_calc.preperator import *
-from snr_calc.map_generator import *
+from snr_evaluator import *
+from map_generator import *
 from snr_calc.map_db import *
 import datetime
 import os
