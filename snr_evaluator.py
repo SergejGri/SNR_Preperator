@@ -1,28 +1,26 @@
 import csv
 import datetime
 import os
-import gc
 import helpers as hlp
 import numpy as np
-from map_generator import SNRMapGenerator
-from scanner import Scanner
+from image_loader import ImageLoader
 from ext.SNR_spectra import SNR_Evaluator, ImageSeriesPixelArtifactFilterer
 
 DETAILED = True
 
 
 class SNREvaluator:
-    def __init__(self, image_loader, watt: float, magnification: float, voltage: int, btexp: float, only_snr: bool,
-                 pixel_size_units: str = None, detector_pixel: float = None, snr_result_name: str = None,
-                 T_result_name: str = None):
-        self.loader = image_loader
+    def __init__(self, watt: float, magnification: float, voltage: int, only_snr: bool = False,
+                 ex_kvs: list = None, ex_ds: list = None, pixel_size_units: str = None, detector_pixel: float = None,
+                 snr_result_name: str = None, T_result_name: str = None):
+
         self.M = magnification
         self.watt = watt
         self.voltage = voltage
-        self.btexp = btexp
+        self.ex_kvs = ex_kvs
+        self.ex_ds = ex_ds
         self.EVA = SNR_Evaluator()
         self.filterer = ImageSeriesPixelArtifactFilterer()
-        #self.scanner = Scanner()
         self.only_snr = only_snr
 
         if detector_pixel is not None:
@@ -47,60 +45,166 @@ class SNREvaluator:
             self.T_name = f'{self.c_date.year}-{self.c_date.month}-{self.c_date.day}_T'
 
 
-    def calc_snr(self, images: np.ndarray, refs: np.ndarray, darks: np.ndarray, texp, px_size, px_units, filterer):
-        self.EVA.estimate_SNR(images, refs, darks, exposure_time=self.btexp, pixelsize=self.pixel_size,
+    def calc_snr(self, images: np.ndarray, refs: np.ndarray, darks: np.ndarray, texp):
+        self.EVA.estimate_SNR(images, refs, darks, exposure_time=texp, pixelsize=self.pixel_size,
                               pixelsize_units=self.pixel_size_units, series_filterer=self.filterer,
                               save_path=os.path.join(self.SNR_name, f'SNR(x)_{self.watt}W_{self.voltage}kV_texp{self.btexp}s'))
         return self.EVA
 
 
-    def calc_T(self, data, refs, darks):
+    def calc_transmission(self, data, refs, darks):
         darks_avg = np.nanmean(darks, axis=0)
         refs_avg = np.nanmean(refs, axis=0)
         data_avg = np.nanmean(data, axis=0)
         img = (data_avg - darks_avg) / (refs_avg - darks_avg)
-        h = 20
-        w = 20
-        median = []
-        for i in range(0, img.shape[0] - h, h):
-            for j in range(0, img.shape[1] - w, w):
-                rect = img[i:i + h, j:j + w]
-                medn = np.median(rect)
-                median.append(medn)
-        transmission_min = min(median)
-        del img
-        gc.collect()
-        return transmission_min
+        rng_min = np.nanmin(img)
+        rng_max = np.nanmax(img)
+        sum = 0
+        counter = 0
+        for i in range(0, img.shape[0], 1):
+            for j in range(0, img.shape[1], 1):
+                if rng_min <= img[i, j] <= ((rng_max-rng_min)/3+rng_min):
+                    sum += img[i, j]
+                    counter += 1
+        return sum/counter
 
 
-    def snr_3D(self, result_path, data: np.ndarray, refs: np.ndarray, darks: np.ndarray, exposure_time, angle):
+    def snr_3D(self, generator, result_path, data: np.ndarray, refs: np.ndarray, darks: np.ndarray, texp, angle):
+        '''
+        This function assumes the evaluation with average images NOT exposure time.
+
+        :param generator:       map_generator
+        result_path
+        data
+        refs
+        darks
+        exposure_time
+        angle
+        '''
+
         res_str = f'SNR-{self.watt}W-{self.voltage}kV-@{angle}angle'
         results = []
         figure = None
-        EVA = self.EVA
-        texp = round(exposure_time * self.btexp, 3)
+        path_sv_snr = os.path.join(result_path, 'snr')
+        path_sv_T = _path_T = os.path.join(result_path, 'transmission')
+
+        transmission = self.calc_transmission(data, refs, darks)
+
+        if not os.path.exists(path_sv_T):
+            os.makedirs(path_sv_T)
+        if not os.path.exists(path_sv_snr):
+            os.makedirs(path_sv_snr)
+
+        self.EVA.estimate_SNR(images=data, refs=refs, darks=darks, pixelsize=self.pixel_size,
+                              pixelsize_units=self.pixel_size_units, exposure_time=texp, series_filterer=self.filterer,
+                              save_path=os.path.join(path_sv_snr, res_str))
+
+        figure = self.EVA.plot(figure, rf'$\theta= {angle}^\circ$ ')
+        results.append(self.EVA)
+        self.EVA.finalize_figure(figure, save_path=os.path.join(path_sv_snr, f'angle-{angle}.pdf'))
+
+        lb = generator.ROI['lb']
+        rb = generator.ROI['rb']
+        data = hlp.merge_v1D(self.EVA.u, self.EVA.SNR, self.EVA.S, self.EVA.N)
+        _, snr = generator.calc_avg_SNR(data=data, lb=lb, rb=rb)
+        return transmission, snr
 
 
-        T_min = self.calc_T(data, refs, darks)
-        file = f'angle-{angle}.csv'
-        _path_T = os.path.join(result_path, file)
-        with open(os.path.join(_path_T), 'a+') as f:
-            f.write('{};{}\n'.format(angle, T_min))
-            f.close()
+    def evaluate_step_wedge(self, base_path, result_path):
+        properties = self.get_properties(base_path)
+        loader = ImageLoader(used_SCAP=True, remove_lines=False, load_px_map=False)
+        view = slice(None, None), slice(450, 1650), slice(645, 888)
 
-        sv_str = os.path.join(result_path, res_str)
-        EVA.estimate_SNR(data, refs, darks, pixelsize=74.8, pixelsize_units='$\mu m$', exposure_time=texp,
-                              series_filterer=self.filterer, save_path=os.path.join(result_path, res_str))
-        figure = EVA.plot(figure, f'{angle}')
-        results.append(EVA)
-        EVA.finalize_figure(figure, save_path=os.path.join(result_path, f'angle-{angle}.pdf'))
+        for dir in properties:
+            voltage = hlp.extract(what='kv', dfile=dir)
+
+            path_darks = os.path.join(base_path, dir, 'darks')
+            path_refs = os.path.join(base_path, dir, 'refs')
+            refs = loader.load_stack(path=path_refs, stack_range=(0, 200))
+            darks = loader.load_stack(path=path_darks, stack_range=(0, 200))
+            refs = refs[view]
+            darks = darks[view]
+
+            psave_SNR = os.path.join(result_path, self.SNR_name, dir)
+            psave_T = os.path.join(result_path, self.T_name)
+            if not os.path.exists(psave_T):
+                os.makedirs(psave_T)
+
+            subdirs = properties[dir]['ds']
+            t_exp = properties[dir]['t_exp']
+
+            results = []
+            figure = None
+            for subdir in subdirs:
+                _d = int(subdir)
+                print(f'working on {dir}: {_d} mm')
+                p_imgs, _, _ = self.prepare_imgs(base_path, dir, subdir)
+                data = loader.load_stack(path=p_imgs)
+                data = data[view]
+
+                if not self.only_snr:
+                    T = self.calc_transmission(data, refs, darks)
+                    self.write_T_data(psave_T, _d, T, voltage)
+
+                self.EVA.estimate_SNR(data, refs, darks, series_filterer=self.filterer, exposure_time=t_exp,
+                                      pixelsize=self.pixel_size, pixelsize_units=self.pixel_size_units,
+                                      save_path=os.path.join(psave_SNR, fr'SNR(u)_{self.watt}W_{voltage}kV_texp{t_exp}s_{_d}mm'))
+
+                figure = self.EVA.plot(figure, label=f'{_d}mm')
+                results.append(self.EVA)
+                if DETAILED:
+                    print(f'Done with {dir}: {_d} mm')
+            print('finalizing figure...')
+            self.EVA.finalize_figure(figure, title=f'{dir} @{self.watt}W',
+                                     save_path=os.path.join(psave_SNR, f'{voltage}kV'))
 
 
-        #agl = hlp.extract(what='angl', dfile=f)
-        kv, snr = self.calc_avg_SNR(file=f, lb=lb, rb=rb)
+    def get_properties(self, path):
+        '''
+        function for getting properties from each voltage folder.
+        Parameters
+        ----------
+        path
 
-        return T_min, snr
+        Returns a dict with structure like: 100kV_           120kV_             ...
+                                                 |                |             ...
+                                                 L ds, texp       L ds, texp    ...
+        -------
 
+        '''
+        directories = {}
+        for dirr in os.listdir(path):
+            if os.path.isdir(os.path.join(path, dirr)) and 'kV' in dirr:
+                kv = hlp.extract(what='kv', dfile=dirr)
+                if kv in self.ex_kvs:
+                    pass
+                else:
+                    subdirs = self.get_subdirs(path=path, dir=dirr)
+                    t_exp = get_texp(path=path, kv=kv)
+                    dict_sdir = {'ds': subdirs, 't_exp': t_exp}
+                    directories[dirr] = dict_sdir
+        return directories
+
+
+    def get_subdirs(self, path, dir):
+        subdirs = []
+        working_dir = os.path.join(path, dir)
+        for sdir in os.listdir(working_dir):
+            if sdir.isdigit():
+                if self.ex_ds is not None:
+                    if int(sdir) in self.ex_ds:
+                        pass
+                    else:
+                        subdirs.append(sdir)
+        try:
+            subdirs = [int(x) for x in subdirs]
+            subdirs.sort()
+            return subdirs
+        except:
+            print(f'Not correct naming? It seems that in your subdirs folder of {dir} have non numeric values \n-> '
+                  f'sorting not possible.\n'
+                  f'Please make sure your thickness folders are following the naming convention.\n')
+            return 0
 
 
     def get_SNR_data(self, path_f, d, lb, rb):
@@ -126,10 +230,20 @@ class SNREvaluator:
         return arr[:, 1]
 
 
+    @staticmethod
+    def prepare_imgs(path, dir, subf):
+        imgs = None
+        ref_imgs = None
+        dark_imgs = None
+        if os.path.isdir(os.path.join(path, dir)):
+            imgs = os.path.join(path, dir, str(subf))
+            dark_imgs = os.path.join(path, dir, 'darks')
+            ref_imgs = os.path.join(path, dir, 'refs')
+        return imgs, ref_imgs, dark_imgs
 
 
     def write_T_data(self, path_T, d, T, voltage):
-        file_l = f'{d}_mm.csv'
+        file_l = f'{d}_mm.txt'
         if DETAILED:
             print(f'WRITING FILES {d} mm')
 
@@ -142,8 +256,7 @@ class SNREvaluator:
 
 
 class StepWedgeEvaluator(SNREvaluator):
-
-    def __init__(self, path: str, path_result: str, ex_kvs: list = None, ex_ds: list = None, only_snr: bool = False):
+    def __init__(self, path: str, path_result: str, ex_kvs: list = None, ex_ds: list = None):
         """
         see __init__() for the individual types of expected inputs of parameters
         :param img_shape: (detector height, detector width) in pixels
@@ -168,7 +281,10 @@ class StepWedgeEvaluator(SNREvaluator):
         :param snr_result_name: your desired name for SNR results
         :param trans_result_name: your desired name for Transmission results
         """
-        super(StepWedgeEvaluator, self).__init__()
+        super(StepWedgeEvaluator, self).__init__(watt=self.watt, magnification=self.M, voltage=self.voltage,
+                                                 btexp=self.btexp, only_snr=self.only_snr,
+                                                 pixel_size_units=self.pixel_size_units, detector_pixel=self.pixel_size,
+                                                 snr_result_name=self.SNR_name, T_result_name=self.T_name)
         self.path_base = path
         self.path_result = path_result
 
@@ -179,10 +295,6 @@ class StepWedgeEvaluator(SNREvaluator):
         self.ex_ds = []
         if ex_ds is not None:
             self.ex_ds = ex_ds
-
-        self.only_snr = only_snr
-        if self.only_snr:
-            print('only_snr = True --> No Transmission calc.')
 
 
 
@@ -222,7 +334,7 @@ class StepWedgeEvaluator(SNREvaluator):
                 imgs_data = self.img_holder.load_stack(path=p_imgs)
 
                 if not self.only_snr:
-                    T = self.calc_T(imgs_data, imgs_refs, imgs_darks)
+                    T = self.calc_transmission(imgs_data, imgs_refs, imgs_darks)
                     self.write_T_data(psave_T, _d, T, voltage)
 
                 SNR_eval, figure = self.evaluate_snr(snr_obj=SNR_eval, path_save_SNR=psave_SNR, fig=figure,

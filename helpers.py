@@ -175,9 +175,29 @@ def merge_v1D(*cols):
     return arr
 
 
-def round_to_nearest_hundred(btexp, num):
+def calculate_avg(img_stack):
+    if img_stack.shape[0] < 1:
+        print('No stack given: img_stack size is < 1!')
+    elif img_stack.shape[0] == 1:
+        avg_img = img_stack
+    else:
+        avg_img = np.nanmean(img_stack, axis=0)
+    return avg_img
+
+
+def rm_files(path, extension):
+    if '.' not in extension:
+        extension = f'.{extension}'
+    for fname in os.listdir(path):
+        if fname.lower().endswith(f'{extension}'):
+            os.remove(os.path.join(path, fname))
+
+
+def round_to_nearest(btexp, num):
     num = round(num, 1)
     avg_num = round(num / btexp)
+    if avg_num <= 0:
+        avg_num = 1
     return avg_num
 
 

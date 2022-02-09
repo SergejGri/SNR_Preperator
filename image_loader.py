@@ -22,26 +22,20 @@ class ImageLoader:
         """
         self.used_SCAP = used_SCAP
         self.remove_lines = remove_lines
-
         self.header = 2048
         self.shape = (1536, 1944)
         if self.used_SCAP:
             self.header = 0
             self.shape = (1944, 1536)
-
         if crop_area is not None:
             self.crop_area = crop_area
             self.view = (0, 0), *self.crop_area
         else:
             self.crop_area = (None, None)
             self.view = (None, None, None)
-
         self.idxs = []
-
         self.bad_px_map = load_px_map
-
         self.t_exp = None
-
         self.modified_px_map = None
         self.new_img_shape = None
 

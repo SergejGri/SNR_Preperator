@@ -1,5 +1,5 @@
 import os
-from ct_operations import CT_multi_img
+from ct_operations import merging_multi_img_CT
 from ext import file
 from ext.SNR_spectra import SNR_Evaluator
 from ext.SNR_spectra import ImageSeriesPixelArtifactFilterer
@@ -70,10 +70,10 @@ def avg():
     t_exp = 0.1
 
 
-    dirr = CT_multi_img(path_ct=r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\TEST_102kV_CT_SNR_AVG_compare\four_proj',
-                        path_refs=r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\TEST_102kV_CT_SNR_AVG_compare\refs',
-                        path_darks=r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\TEST_102kV_CT_SNR_AVG_compare\darks',
-                        )
+    dirr = merging_multi_img_CT(path_ct=r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\TEST_102kV_CT_SNR_AVG_compare\four_proj',
+                                path_refs=r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\TEST_102kV_CT_SNR_AVG_compare\refs',
+                                path_darks=r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\TEST_102kV_CT_SNR_AVG_compare\darks',
+                                )
 
     path_to_raw_data = r"C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\TEST_102kV_CT_SNR_AVG_compare\single_proj"
     _str = path_to_raw_data.split('Auswertung_MA\\')[1]

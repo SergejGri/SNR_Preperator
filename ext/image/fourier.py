@@ -11,7 +11,8 @@ THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND ANY EXPRE
 import numpy as np
 
 try:
-    import pyfftw, os
+    import pyfftw
+    import os
     pyfftw.interfaces.cache.enable()
     pyfftw.interfaces.cache.set_keepalive_time(60)
     FFT_THREADS = os.cpu_count()

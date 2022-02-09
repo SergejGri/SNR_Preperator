@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import helpers as hlp
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 from cycler import cycler
 import matplotlib.gridspec as gridspec
@@ -8,26 +9,30 @@ import matplotlib.gridspec as gridspec
 
 class Plotter:
     # https://stackoverflow.com/questions/64405910/matplotlib-font-common-font-with-latex
-    rc_fonts = {
+    pgf_with_latex = {  # setup matplotlib to use latex for output
+        "pgf.texsystem": "pdflatex",  # change this if using xetex or lautex
+        "text.usetex": True,  # use LaTeX to write all text
         "font.family": "serif",
-        "font.size": 20,
-        'figure.figsize': (5, 3),
-        "text.usetex": True,
-        'text.latex.preview': True,
-        'text.latex.preamble': [
-            r"""
-            \usepackage{libertine}
-            \usepackage[libertine]{newtxmath}
-            \usepackage{siunitx}
-            """],
+        "font.serif": [],  # blank entries should cause plots
+        "font.sans-serif": [],  # to inherit fonts from the document
+        "font.monospace": [],
+        "axes.labelsize": 12,  # LaTeX default is 10pt font.
+        "font.size": 12,
+        "legend.fontsize": 11,  # Make the legend/label fonts
+        "xtick.labelsize": 12,  # a little smaller
+        "ytick.labelsize": 12,
+        "pgf.preamble": "\n".join([r"\usepackage{libertine}",
+                                   r"\usepackage[libertine]{newtxmath}",
+                                   r"\usepackage{siunitx}"
+                                   r"\usepackage[utf8]{inputenc}",
+                                   r"\usepackage[T1]{fontenc}"])
     }
+    mpl.use("pgf")
+    mpl.rcParams.update(pgf_with_latex)
 
-    def __init__(self):
-        self.ft_sz_size = 10
-        self.ft_sz_title = 10
-        self.plt_layout = 'tight'
-
-
+    plt.rc('lines', linewidth=2)
+    plt.rc('axes', prop_cycle=(cycler('color', ['#4477AA', '#EE6677', '#228833', '#CCBB44', '#66CCEE', '#AA3377', '#BBBBBB'])))
+    #plt.rc('axes', prop_cycle=(cycler('color', ['#002C2B', '#469D59', '#E2B33C', '#EE7972', '#FDEADB', '#FDEADB', '#FDEADB'])))
 
 
     def map_plot(self, path_result: str, object, Y_style: str = 'log', detailed: bool = False):
@@ -42,35 +47,28 @@ class Plotter:
             if hlp.is_int(d) and d in object['ds']:
                 _c_data = object['d_curves'][d]['raw_data']
                 _a = 1.0
-                ax.plot(_c_fit[:, 1], _c_fit[:, 3], linestyle='-', linewidth='2', alpha=_a, label=f'{d} mm')
+                ax.plot(_c_fit[:, 1], _c_fit[:, 3], linestyle='-', alpha=_a, label=f'{d} mm')
                 ax.scatter(_c_data[:, 1], _c_data[:, 2], marker='o', alpha=_a)
             else:
-                _c = 'grey'
-                _a = 0.2
-                ax.plot(_c_fit[:, 1], _c_fit[:, 3], linestyle='-', linewidth='1', alpha=_a, c=_c)
-                #ax.scatter(_c_fit[:, 1], _c_fit[:, 2], marker='o', alpha=_a, s=1, c=_c)
+                _c = '#BBBBBB'
+                _a = 0.15
+                ax.plot(_c_fit[:, 1], _c_fit[:, 3], linestyle='-', linewidth=0.8, alpha=_a, c=_c)
 
-
-        ax.axvline(x=object['T_min'], color='k', linestyle='--', linewidth='1')
+        ax.axvline(x=object['T_min'], color='k', linestyle='--', linewidth=1)
         _c_U0 = object['U0_curve']['raw_data']
-        #_c_opt = object['opt_curve']['fit']
-
-        #ax.scatter(object['INTERCEPT_X'], object['INTERCEPT_Y'], marker='x', s=15, c='black')
-
-        ax.plot(_c_U0[:, 0], _c_U0[:, 1], linewidth=1.5, label='$U_{0}$ curve')
-        #ax.plot(_c_opt[:, 0], _c_opt[:, 1],linewidth=1.5, label='$U_{opt}$ curve', c='red')
-
-        ax.legend(loc="upper left")
-        ax.set_title(f'SNR MAP @ {roi_l}-{roi_r} $\mu m$')
+        _c_Ubest = object['Ubest_curve']['raw_data']
+        ax.plot(_c_U0[:, 0], _c_U0[:, 1], linewidth=1.5, label=r'$U_{0}$')
+        ax.plot(_c_Ubest[:, 0], _c_Ubest[:, 1], linewidth=1.5, label=r'$U_{\text{opt}}$')
+        ax.legend(loc="lower right")
+        ax.set_title(f'SNR Karte / AL (Z=13) @ {roi_l}-{roi_r} $\mu m$')
         ax.set_yscale(Y_style)
-        ax.set_xlabel('Transmission a.u.')
-        ax.set_ylabel('SNR/s')
+        ax.set_xlabel('Transmission [w.E.]')
+        ax.set_ylabel(r'SNR $[\text{s}^{-1}]$')
         sv_path = os.path.join(path_result, 'plots')
         plt.tight_layout()
         if not os.path.isdir(sv_path):
             os.makedirs(sv_path)
-        plt.show()
-        fig.savefig(os.path.join(path_result, 'plots', f'MAP_ROI-{roi_l}-{roi_r}.pdf'), dpi=600)
+        fig.savefig(os.path.join(path_result, f'SNR-Karte-ROI-{roi_l}-{roi_r}.pdf'), dpi=600)
 
 
 
@@ -95,19 +93,47 @@ class Plotter:
                 _a = 0.2
                 ax.plot(_c_fit[:, 0], _c_fit[:, 1], linestyle='-', linewidth='1', alpha=_a, c=_c)
 
-        #ax.axvline(x=object['U0_val'])
         ax.legend(loc='best')
         ax.set_yscale(Y_style)
-        ax.set_xlabel('Voltage $[10^{3} V]$')
-        ax.set_ylabel('Transmission a.u.')
+        ax.set_xlabel(r'Voltage $[ \SI{1e3}{ \volt}]$')
+        ax.set_ylabel('Transmission [w.E.]')
         sv_path = os.path.join(path_result, 'plots')
         if not os.path.isdir(sv_path):
             os.makedirs(sv_path)
         plt.tight_layout()
-        plt.show()
         fig.savefig(os.path.join(path_result, 'plots', f'T_kV-{roi_l}-{roi_r}.pdf'), dpi=600)
 
 
+    def snr_kv_plot(self, path_result: str, object, Y_style: str = 'log', detailed: bool = False):
+        roi_l = object['ROIs']['lb']
+        roi_r = object['ROIs']['rb']
+
+        fig = plt.figure()
+        ax = fig.add_subplot()
+
+        for d in object['d_curves']:
+
+            _c_fit = object['d_curves'][d]['full']
+            _c_data = object['d_curves'][d]['raw_data']
+
+            if hlp.is_int(d) and d in object['ds']:
+                _a = 1.0
+                ax.plot(_c_fit[:, 0], _c_fit[:, 3], linestyle='-', linewidth='2', alpha=_a, label=f'{d} mm')
+                ax.scatter(_c_data[:, 0], _c_data[:, 2], marker='o', alpha=_a)
+            else:
+                _c = 'grey'
+                _a = 0.2
+                ax.plot(_c_fit[:, 0], _c_fit[:, 3], linestyle='-', linewidth='1', alpha=_a, c=_c)
+
+        ax.legend(loc='best')
+        ax.set_yscale(Y_style)
+        ax.set_xlabel(r'Voltage $[ \SI{1e3}{ \volt}]$')
+        ax.set_ylabel('SNR [$s^{-1}$]')
+        sv_path = os.path.join(path_result, 'plots')
+        if not os.path.isdir(sv_path):
+            os.makedirs(sv_path)
+        plt.tight_layout()
+        fig.savefig(os.path.join(path_result, 'plots', f'snr_kV-{roi_l}-{roi_r}.pdf'), dpi=600)
 
 
     def compare_fCT_CT(self, object):
@@ -131,31 +157,27 @@ class Plotter:
         fCT_texp = object.fCT_data['texp']
 
         ax11 = ax1.twinx()
-        ax1.scatter(CT_theta, CT_avg, label='CT_avg', alpha=0.5, c='green')
-        ax11.scatter(fCT_theta, fCT_avg, label='fCT_avg', alpha=0.5, c='blue')
+        ax1.scatter(CT_theta, CT_avg, label='CT_avg')
+        ax11.scatter(fCT_theta, fCT_avg, label='fCT_avg')
         ax1.legend()
         ax11.legend()
-        ax1.set_xlabel('Winkel $\theta [\circ]$')
+        ax1.set_xlabel(r'Winkel $\theta [\circ]$')
         ax1.set_ylabel('Gemittelte Projektionen')
 
-        ax2.scatter(CT_theta, CT_snr, label=f'$SNR(\theta)$', alpha=0.5, c='green')
-        ax2.scatter(fCT_theta, fCT_snr, label=f'$fSNR(\theta)$', alpha=0.5, c='blue')
+        ax2.scatter(CT_theta, CT_snr, label=r'$SNR(\theta)$')
+        ax2.scatter(fCT_theta, fCT_snr, label=r'$fSNR(\theta)$')
         ax2.legend()
-        ax2.set_xlabel('Winkel $\theta [\circ]$')
-        ax2.set_ylabel('SNR $\cdot s^{-1}$')
+        ax2.set_xlabel(r'Winkel $\theta [\circ]$')
+        ax2.set_ylabel(r'SNR $\cdot s^{-1}$')
 
-        ax3.scatter(CT_theta, CT_d, label=f'CT d', alpha=0.5, c='green')
-        ax3.scatter(fCT_theta, fCT_d, label=f'fCT d', alpha=0.5, c='blue')
+        ax3.scatter(CT_theta, CT_d, label=f'CT d')
+        ax3.scatter(fCT_theta, fCT_d, label=f'fCT d')
         ax3.legend()
-        ax3.set_xlabel('Winkel $\theta [\circ]$')
-        ax3.set_ylabel('Berechnete Objektdicke')
+        ax3.set_xlabel(r'Winkel $\theta [\circ]$')
+        ax3.set_ylabel(r'Berechnete Objektdicke')
 
         plt.tight_layout()
-        plt.savefig(os.path.join(object.scanner.path_fin, 'Overview_plot_ROI{ROIl}-{ROIr}.pdf'), dpi=600)
-
-        plt.show()
-
-
+        plt.savefig(os.path.join(object.p_fin, 'Overview_plot_ROI{ROIl}-{ROIr}.pdf'), dpi=600)
 
 
     def fit_me_for_plot(self, _c):
@@ -173,34 +195,6 @@ class Plotter:
     @staticmethod
     def func_poly(x, a, b, c):
         return a * x ** 2 + b * x + c
-
-
-
-def focal_point():
-    path_save = r"C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\Brennfleck"
-    if not os.path.exists(path_save):
-        os.makedirs(path_save)
-    file_1 = r"C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-09-28_Brennfleck\1W\2021-9-30_SNR\100kV\SNR_100kV_4_mm_expTime_2250.txt"
-    file_2 = r"C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\SNR\2021-09-28_Brennfleck\6W\2021-9-30_SNR\100kV\SNR_100kV_4_mm_expTime_375.txt"
-
-    file_1 = np.genfromtxt(file_1, dtype=float, skip_header=3)
-    file_2 = np.genfromtxt(file_2, dtype=float, skip_header=3)
-
-
-    X = file_1[:, 0]
-    Y_1 = file_1[:, 1]
-    Y_2 = file_2[:, 1]
-
-    fig = plt.figure()
-    plt.semilogy(X, Y_1, label='1W $t_{exp} = 2250$ms')
-    plt.semilogy(X, Y_2, label='6W $t_{exp} = 375$ms')
-    plt.xlim(0, 0.1)
-    plt.title(f'Compare of 1W and 6W SNR/s')
-    plt.xlabel('spatial frequency')
-    plt.ylabel('SNR $\cdot s^{-1}$')
-    plt.legend()
-    plt.show()
-    fig.savefig(os.path.join(path_save, f'compare_1W_6W.pdf'), dpi=600)
 
 
 

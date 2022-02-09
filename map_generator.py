@@ -14,14 +14,10 @@ class SNRMapGenerator:
         :param path_fin:
         :param kv_filter:
         """
-        #self.scanner = scanner
-        #self.path_snr = self.scanner.p_snr
-        #self.path_T = self.scanner.p_T
         self.path_snr = p_snr
         self.path_T = p_T
-        self.path_fin = os.path.join(os.path.dirname(self.path_T), 'MAP')
+        self.path_fin = os.path.join(os.path.dirname(self.path_T), 'Karte')
         self.files = {'snr': None}
-        #self.ds = self.scanner.files['ds']
         self.ds = ds
         self.kVs = self.used_voltages(filter=kv_filter)
         self.str_d = None
@@ -65,12 +61,11 @@ class SNRMapGenerator:
         self.MAP_object['d_curves'] = self.curves
         self.MAP_object['ds'] = self.ds
         self.write_curve_files(self.curves)
-
         return self.MAP_object
 
 
     def get_T_data(self):
-        data_T = np.genfromtxt(os.path.join(self.path_T, f'{self.str_d}.csv'), delimiter=';')
+        data_T = np.genfromtxt(os.path.join(self.path_T, f'{self.str_d}.txt'), delimiter=';')
         data_T = data_T[data_T[:, 0].argsort()]
         data_T = np.asarray(data_T)
 
@@ -88,9 +83,10 @@ class SNRMapGenerator:
         for file in self.files['snr']:
             _d = hlp.extract(what='d', dfile=file)
             if _d == d:
-                kV, mean_SNR = self.calc_avg_SNR(file, lb, rb)
-                if kV in self.kV_filter:
-                    del kV, mean_SNR
+                kV, mean_SNR = self.calc_avg_SNR(file=file, lb=lb, rb=rb)
+                if self.kV_filter is not None:
+                    if kV in self.kV_filter:
+                        del kV, mean_SNR
                 else:
                     kvs.append(kV)
                     snr_means.append(mean_SNR)
@@ -101,17 +97,22 @@ class SNRMapGenerator:
         return arr[:, 1]
 
 
-    def calc_avg_SNR(self, file, lb, rb):
+    def calc_avg_SNR(self, lb, rb, file: str = None, data: np.ndarray = None):
         '''
         function reads .txt file which is produced by the script 'SNR_Spectra.py' and interpolates between the usually
         coarse data points. Especially in the region of small frequencies (data points are not equally distributed).
         Format of the file content must be like:
         column1: spatial frequency, column2: SNR, column3: signal power spectrum, column4: noise power spectrum
         '''
-        kv = hlp.extract(what='kv', dfile=file)
-        data = np.genfromtxt(file, skip_header=3)
-        data = self.interpolate_data(data)
+        kv = None
+        #if all(v is None for v in {file, data}):
+        #    raise ValueError('Expected either file or data args')
 
+        if file is not None:
+            kv = hlp.extract(what='kv', dfile=file)
+            data = np.genfromtxt(file, skip_header=3)
+
+        data = self.interpolate_data(data)
         data_u = data[:, 0]
         data_x = 1 / (2 * data_u)
         data = np.c_[data, data_x]
@@ -183,7 +184,7 @@ class SNRMapGenerator:
             kv0 = int(self.kVs[i])
             kv1 = int(self.kVs[i + 1])
 
-            n = abs( (int(kv1) - int(kv0)) / kv_step_width + 1)
+            n = abs((int(kv1) - int(kv0)) / kv_step_width + 1)
             n = int(n)
             row0 = _c[kV == kv0]
             row1 = _c[kV == kv1]
@@ -284,11 +285,11 @@ class SNRMapGenerator:
 
 
     def write_curve_files(self, curves):
-        if not os.path.isdir(self.path_fin):
-            os.makedirs(self.path_fin)
+        if not os.path.isdir(os.path.join(self.path_fin, 'Kurven')):
+            os.makedirs(os.path.join(self.path_fin, 'Kurven'))
         for c in curves:
             c = int(c)
-            np.savetxt(os.path.join(self.path_fin, f'{c}mm_raw-data.csv'), self.curves[c]['raw_data'], delimiter=',')
+            np.savetxt(os.path.join(self.path_fin, 'Kurven', f'{c}mm_raw-data.txt'), self.curves[c]['raw_data'], delimiter=';')
 
 
     def check_range(self, rng):
@@ -310,7 +311,6 @@ class SNRMapGenerator:
 
     def update_map(self):
         self.MAP_object = self.MAP_object
-
 
 
     def collect_snr_files(self):
