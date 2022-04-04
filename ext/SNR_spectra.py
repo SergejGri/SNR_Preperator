@@ -36,7 +36,7 @@ print(f'{__name__} version {".".join([str(v) for v in version])} ({version_date}
 try:
     import matplotlib.pyplot as plt
     import matplotlib as mpl
-    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    colors = ['#0C5DA5', '#00B945', '#FF9500', '#FF2C00', '#845B97', '#474747', '#9e9e9e']
 
     def get_color_ls(index):
         color = colors[index % len(colors)]
@@ -336,6 +336,7 @@ class SNR_Evaluator():
                 self.properties = json.loads(properties[2:])
 
     def plot(self, figure: plt.Figure, label=None, only_snr=True):
+        from cycler import cycler
         '''
         plot the result from estimate_SNR()
 
@@ -347,19 +348,54 @@ class SNR_Evaluator():
         :param save_path:   path to save fig to (defaults to .pdf)
         :return:
         '''
+
+        # ========== not default stuff
+        pgf_with_latex = {  # setup matplotlib to use latex for output
+            "pgf.texsystem": "pdflatex",  # change this if using xetex or lautex
+            "text.usetex": True,  # use LaTeX to write all text
+            "font.family": "serif",
+            "font.serif": [],  # blank entries should cause plots
+            "font.sans-serif": [],  # to inherit fonts from the document
+            "font.monospace": [],
+            "axes.labelsize": 12,  # LaTeX default is 10pt font.
+            "font.size": 12,
+            "legend.fontsize": 12,  # Make the legend/label fonts
+            "xtick.labelsize": 12,  # a little smaller
+            "xtick.top": True,
+            "ytick.right": True,
+            "xtick.direction": "in",
+            "ytick.direction": "in",
+            "ytick.labelsize": 12,
+            "pgf.preamble": "\n".join([r"\usepackage{libertine}",
+                                       r"\usepackage[libertine]{newtxmath}",
+                                       r"\usepackage{siunitx}"
+                                       r"\usepackage[utf8]{inputenc}",
+                                       r"\usepackage[T1]{fontenc}"])
+        }
+        mpl.use("pgf")
+        mpl.rcParams.update(pgf_with_latex)
+        plt.rc('lines', linewidth=2)
+
+
+        # =================================================================================================
+
         if label is None:
             label = self.label
         if label is None:
             raise ValueError('no label given')
-        xlabel = f'spatial size [{self.properties["pixelsize_units"]}]'
+        # xlabel = f'spatial size [{self.properties["pixelsize_units"]}]' default
+        xlabel = r'räumliche Größe ($\mu m$)'
+
 
         if figure is None:
             if only_snr:
                 figure, ax = plt.subplots(1, 1, figsize=(5, 5))
                 ax.set_xlabel(xlabel)
-                ax.set_ylabel('SNR')
+                # ax.set_ylabel('SNR')  # default
+                ax.set_ylabel(r'SNR [$s^{-1}$]')
             else:
-                figure = plt.figure(constrained_layout=True, figsize=(10, 5))
+                #figure = plt.figure(constrained_layout=True, figsize=(10, 5))
+                figure = plt.figure(constrained_layout=True, figsize=(9, 4))
                 figure.tight_layout(rect=(0, 0, 1, 1), pad=0.05)
                 gs = mpl.gridspec.GridSpec(1, 7, figure=figure)
                 axes = figure.add_subplot(gs[:3]), figure.add_subplot(gs[3:5]), figure.add_subplot(gs[5:])
@@ -397,8 +433,8 @@ class SNR_Evaluator():
         if save_path is not None:
             if '.' not in save_path:
                 save_path += '.pdf'
-            figure.savefig(save_path)
-
+            figure.savefig(save_path, bbox_inches='tight', dpi=100)
+            #figure.savefig(save_path) default
 
 def estimate_SNR(images: np.ndarray, refs: np.ndarray = None, darks: np.ndarray = None,
                  u_nbins='auto', series_filterer=None, apply_log=True, save_path=None,
@@ -606,5 +642,6 @@ def apply_u_scale(ax, pixelsize, units='px', max_val=0.5, num_ticks=9, labelever
         xticklabels[::labelevery] = ('',)*len(xticklabels[::labelevery])
     ax.set_xticklabels(xticklabels)
     if units is not None:
-        ax.set_xlabel(f'spatial size [{units}]')
-    ax.grid()
+        ax.set_xlabel(r'Strukturgröße' + f' [{units}]')
+        #ax.set_xlabel(f'spatial size [{units}]') #default
+    #ax.grid()
