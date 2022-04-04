@@ -18,6 +18,10 @@ def plot():
         "font.size": 12,
         "legend.fontsize": 12,  # Make the legend/label fonts
         "xtick.labelsize": 12,  # a little smaller
+        "xtick.top": True,
+        "ytick.right": True,
+        "xtick.direction": "in",
+        "ytick.direction": "in",
         "ytick.labelsize": 12,
         "pgf.preamble": "\n".join([r"\usepackage{libertine}",
                                    r"\usepackage[libertine]{newtxmath}",
@@ -30,7 +34,7 @@ def plot():
     plt.rcParams["figure.figsize"] = (6.3, 4)
 
     plt.rc('lines', linewidth=2)
-    plt.rc('axes', prop_cycle=(cycler('color', ['#002C2B', '#3372F5', '#469D59', '#E2B43C', '#EE7972', '#CC7444', '#FDEADB', '#BBBBBB'])))
+    plt.rc('axes', prop_cycle=(cycler('color', ['#0C5DA5', '#00B945', '#FF9500', '#FF2C00', '#845B97', '#474747', '#9e9e9e'])))
 
     density_AL = 2.7    #g/cm^3
     data_tot = np.genfromtxt(r'C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\man_evaluations\mu_abs_al\nist_abs_data.txt', skip_header=3)
@@ -57,13 +61,15 @@ def plot():
 
     sum = y_scatter_2 + y_pair + y_ph_abs
 
-    plt.plot(x_scatter, y_scatter_2, c='#E2B43C', label=r'$\mu_{\text{Compton}}$')
-    plt.plot(x_pair, y_pair, c='#EE7972', label=r'$\mu_{\text{Paar}}')
-    plt.plot(x_ph_abs, y_ph_abs, c='#3372F5', label=r'$\mu_{\text{Photo}}')
-    plt.plot(x_tot, sum, linewidth=3, c='#002C2B', label=r'$\mu_{\text{Gesamt}}$')
+    plt.plot(x_scatter, y_scatter_2, c='#00B945', label=r'$\mu_{\text{Compton}}$')
+    plt.plot(x_pair, y_pair, c='#FF2C00', label=r'$\mu_{\text{Paar}}')
+    plt.plot(x_ph_abs, y_ph_abs, c='#0C5DA5', label=r'$\mu_{\text{Photo}}')
+    plt.plot(x_tot, sum, linewidth=3, c='#474747', label=r'$\mu_{\text{Gesamt}}$')
 
 
-    plt.text(x=0.08, y=300, s='Aluminium (Z=13)')
+    #plt.text(x=0.08, y=300, s='Aluminium (Z=13)')
+    plt.annotate(r'Aluminium (Z=13)', xy=(0.2, 250), bbox=dict(boxstyle="round", fc="w", ec="#BBBBBB"),
+                 ha='center', va='bottom')
 
     plt.gca().add_patch(Rectangle((x_tot[0], 0.00008), 0.018, 1100, color='#BBBBBB', alpha=0.8))
 

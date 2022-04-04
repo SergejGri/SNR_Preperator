@@ -2,12 +2,14 @@ import os
 import numpy as np
 from ext import file
 import helpers as hlp
+from ext.SNR_spectra import ImageSeriesPixelArtifactFilterer
 
 
-def CT(imgs: np.ndarray, refs: np.ndarray, darks: np.ndarray, detailed):
+def calc_T_for_stack(imgs: np.ndarray, refs: np.ndarray, darks: np.ndarray, detailed):
     """
     calculates minimum transmission per angle. Useful for stacks of images.
     """
+
     refs_avg = np.nanmean(refs, axis=0)
     darks_avg = np.nanmean(darks, axis=0)
     list_T = []
@@ -19,8 +21,17 @@ def CT(imgs: np.ndarray, refs: np.ndarray, darks: np.ndarray, detailed):
         if detailed:
             print(f'Evaluating CT: {round((k/(imgs.shape[0]-1))*100, 2)} %')
         img = (imgs[k] - darks_avg) / (refs_avg - darks_avg)
-        rng_min = np.nanmin(img)
-        rng_max = np.nanmax(img)
+
+        img_min = [x for x in img.flatten() if x > 0.0]
+        img2 = [x for x in img_min if x < 1.0]
+
+        rng_min = np.nanmin(img2)
+        if rng_min <= 0.0:
+            rng_min = 0.0
+        rng_max = np.nanmax(img2)
+        if rng_max > 1.0:
+            rng_min = 1.0
+
         sum = 0
         counter = 0
         for i in range(0, img.shape[0], 1):
@@ -30,21 +41,22 @@ def CT(imgs: np.ndarray, refs: np.ndarray, darks: np.ndarray, detailed):
                     counter += 1
         sum = sum / counter
         list_T.append(sum)
-        list_theta.append(round(angle,2))
+        list_theta.append(round(angle, 2))
         del img
         angle += STEP
     return np.asarray(list_T), np.asarray(list_theta)
 
 
-def merging_multi_img_CT(object, base_path, list_images, imgs_per_angle, img_loader):
-    images = sorted(list_images)
-    images_cp = images.copy()
+def merging_multi_img_CT(object, base_path, l_images, imgs_per_angle, img_loader):
+    #images = sorted(list_images)
+    images_cp = l_images.copy()
     CT_avg = object.CT_data['avg_num']
-    angles_num = int(len(list_images) / imgs_per_angle)
+    angles_num = int(len(l_images) / imgs_per_angle)
     angles = np.linspace(0, 360, angles_num, endpoint=False)
     sub_bin = object.sub_bin
     bin = int(imgs_per_angle / sub_bin)
-    fin_dir = make_infrastructure(path=base_path)
+    #fin_dir = make_infrastructure(path=base_path)
+    fin_dir = object.paths['merged_imgs']
 
     stack_start = 0
     for i in range(angles.shape[0]):
@@ -66,14 +78,6 @@ def merging_multi_img_CT(object, base_path, list_images, imgs_per_angle, img_loa
             avg_img = hlp.calculate_avg(img_substack[start:end])
             path_and_name = os.path.join(fin_dir, name)
             file.image.save(image=avg_img, filename=path_and_name, suffix='raw', output_dtype=np.uint16)
-
-            #write_path_merge = os.path.join(os.path.dirname(fin_dir), 'merged_info.txt')
-            #write_path_avgs = os.path.join(os.path.dirname(fin_dir), 'avg_angle_info.txt')
-            #with open(write_path_merge, 'a+') as f_info, open(write_path_avgs, 'a+') as f_avg:
-            #    f_info.write(f'AVG AT ANGLE: {round(angles[i], 2)} \n')
-            #    f_info.write(f'MERGED: {images_cp[start]} UPTO {images_cp[end]} TO {name} \n')
-            #    f_info.write('\n')
-            #    f_avg.write(f'{name};{angles[i]};{_tmp_avg}\n')
 
         del img_substack, avg_img
         print(f'Done with: angle: {round(angles[i],1)}')

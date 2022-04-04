@@ -1,43 +1,46 @@
 import os
 from ext.SNR_spectra import SNR_Evaluator, ImageSeriesPixelArtifactFilterer
 from image_loader import ImageLoader
+import numpy as np
 
 def eval():
     SNR_eval = SNR_Evaluator()
     filterer = ImageSeriesPixelArtifactFilterer()
-    loader = ImageLoader(used_SCAP=False, remove_lines=False, load_px_map=False)
+    loader = ImageLoader(used_SCAP=True, remove_lines=False, load_px_map=False)
+
+    kv = 80
+
+    path_darks = os.path.join(r'\\132.187.193.8\junk\sgrischagin\2021-11-29-sergej-AluKeil-5W\80kV\darks')
+    path_refs = os.path.join(r'\\132.187.193.8\junk\sgrischagin\2021-11-29-sergej-AluKeil-5W\80kV\refs')
+    path_images = os.path.join(r'\\132.187.193.8\junk\sgrischagin\2021-11-29-sergej-AluKeil-5W\80kV\2')
+    refs = loader.load_stack(path=path_refs, stack_range=(0, 280))
+    darks = loader.load_stack(path=path_darks, stack_range=(0, 280))
+    #imgs = loader.load_stack(path=path_images)
+    imgs = loader.load_stack(path=path_images, stack_range=(0, 20))
+    img_num = imgs.shape[0]
+    px_size = 74.8/15.8429
+    view = slice(None, None), slice(375, 1458), slice(690, 882)
+    refs = refs[view]
+    darks = darks[view]
+    imgs = imgs[view]
 
 
-    path_darks = os.path.join(r'\\132.187.193.8\junk\sgrischagin\2021-12-14-sergej-CT-halbesPhantom-100ms-5W-M4p46\fCT-90kV-50proj\darks')
-    path_refs = os.path.join(r'\\132.187.193.8\junk\sgrischagin\2021-12-14-sergej-CT-halbesPhantom-100ms-5W-M4p46\fCT-90kV-50proj\refs')
-    path_images = os.path.join(r'\\132.187.193.8\junk\sgrischagin\2021-12-14-sergej-CT-halbesPhantom-100ms-5W-M4p46\fCT-90kV-50proj\imgs')
-    imgs_refs = loader.load_stack(path=path_refs)
-    imgs_darks = loader.load_stack(path=path_darks)
-    imgs_imgs = loader.load_stack(path=path_darks)
-
-
-    t_exp = 0.1
+    t_exp = 0.27
 
     results = []
     figure = None
 
-    for i in range(imgs_imgs.shape[0]):
-
-        print(f'working on {dir}: {_d} mm')
-
-        SNR_eval, figure = SNR_eval.estimate_SNR(images=imgs_imgs, refs=imgs_refs, darks=imgs_darks, pixelsize=74
-                                                 exposure_time=t_exp, filterer=filterer)
 
 
-
-       pixelsize = 1.0, pixelsize_units = 'px', compute_N0 = False
-        figure = SNR_eval.plot(figure, f'{_d} mm')
-        results.append(SNR_eval)
+    SNR_eval.estimate_SNR(images=imgs, refs=refs, darks=darks, pixelsize=px_size, pixelsize_units='px', exposure_time=t_exp, series_filterer=filterer)
+    print(np.mean(SNR_eval.SNR))
+    figure = SNR_eval.plot(figure, f'{kv} kV')
+    results.append(SNR_eval)
 
 
     print('finalizing figure...')
-    SNR_eval.finalize_figure(figure, title=f'{dir} @{self.watt}W',
-                             save_path=os.path.join(psave_SNR, f'{voltage}kV'))
+    SNR_eval.finalize_figure(figure, title=f'img num: {img_num}',
+                             save_path=os.path.join(r"C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\man_evaluations", f'{kv}kV_imgsnum{img_num}.pdf'))
 
 
 eval()

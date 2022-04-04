@@ -8,7 +8,6 @@ import matplotlib.gridspec as gridspec
 
 
 class Plotter:
-    # https://stackoverflow.com/questions/64405910/matplotlib-font-common-font-with-latex
     pgf_with_latex = {  # setup matplotlib to use latex for output
         "pgf.texsystem": "pdflatex",  # change this if using xetex or lautex
         "text.usetex": True,  # use LaTeX to write all text
@@ -18,8 +17,12 @@ class Plotter:
         "font.monospace": [],
         "axes.labelsize": 12,  # LaTeX default is 10pt font.
         "font.size": 12,
-        "legend.fontsize": 11,  # Make the legend/label fonts
+        "legend.fontsize": 12,  # Make the legend/label fonts
         "xtick.labelsize": 12,  # a little smaller
+        "xtick.top": True,
+        "ytick.right": True,
+        "xtick.direction": "in",
+        "ytick.direction": "in",
         "ytick.labelsize": 12,
         "pgf.preamble": "\n".join([r"\usepackage{libertine}",
                                    r"\usepackage[libertine]{newtxmath}",
@@ -30,12 +33,18 @@ class Plotter:
     mpl.use("pgf")
     mpl.rcParams.update(pgf_with_latex)
 
-    plt.rc('lines', linewidth=2)
-    plt.rc('axes', prop_cycle=(cycler('color', ['#4477AA', '#EE6677', '#228833', '#CCBB44', '#66CCEE', '#AA3377', '#BBBBBB'])))
-    #plt.rc('axes', prop_cycle=(cycler('color', ['#002C2B', '#469D59', '#E2B33C', '#EE7972', '#FDEADB', '#FDEADB', '#FDEADB'])))
+    ms = 5
+
+    custom_cycler = cycler('linestyle', ['-', '--']) * cycler('color',
+                                                              ['#0C5DA5', '#00B945', '#FF9500', '#FF2C00', '#845B97',
+                                                               '#474747', '#9e9e9e'])
+    plt.rc('axes', prop_cycle=custom_cycler)
 
 
     def map_plot(self, path_result: str, object, Y_style: str = 'log', detailed: bool = False):
+        plt.rcParams["figure.figsize"] = (8.77, 5.3)
+        plt.rc('lines', linewidth=2)
+
         fig = plt.figure()
         ax = fig.add_subplot()
         roi_l = object['ROIs']['lb']
@@ -47,28 +56,54 @@ class Plotter:
             if hlp.is_int(d) and d in object['ds']:
                 _c_data = object['d_curves'][d]['raw_data']
                 _a = 1.0
-                ax.plot(_c_fit[:, 1], _c_fit[:, 3], linestyle='-', alpha=_a, label=f'{d} mm')
-                ax.scatter(_c_data[:, 1], _c_data[:, 2], marker='o', alpha=_a)
-            else:
-                _c = '#BBBBBB'
-                _a = 0.15
-                ax.plot(_c_fit[:, 1], _c_fit[:, 3], linestyle='-', linewidth=0.8, alpha=_a, c=_c)
+                ax.plot(_c_fit[:, 1], _c_fit[:, 3], zorder=10, alpha=_a, label=f'{d} mm')
+                ax.scatter(_c_data[:, 1], _c_data[:, 2], zorder=15, marker='o', alpha=_a)
 
-        ax.axvline(x=object['T_min'], color='k', linestyle='--', linewidth=1)
+            if d == 4:
+                ax.annotate(r'\SI{50}{\kilo\volt}', xy=(_c_data[:, 1][0], _c_data[:, 2][0]), xytext=(-30, 20),
+                             textcoords='offset points', ha='center', va='bottom',
+                             bbox=dict(boxstyle='round,pad=0.2', fc='None', edgecolor='#BBBBBB', alpha=1),
+                             arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=0.5',
+                                             color='k'))
+                ax.annotate(r'\SI{160}{\kilo\volt}', xy=(_c_data[:, 1][-1], _c_data[:, 2][-1]), xytext=(20, -30),
+                             textcoords='offset points', ha='center', va='bottom',
+                             bbox=dict(boxstyle='round,pad=0.2', fc='None', edgecolor='#BBBBBB', alpha=1),
+                             arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=0.5',
+                                             color='k'))
+
+            else:
+                pass
+                #_c = '#BBBBBB'
+                #_a = 0.5
+                #ax.plot(_c_fit[:, 1], _c_fit[:, 3], linestyle='-', zorder=5, linewidth=0.8, alpha=_a, c=_c)
+
+        #ax.axvline(x=object['T_min'], color='k', linestyle='--', linewidth=1)
         _c_U0 = object['U0_curve']['raw_data']
         _c_Ubest = object['Ubest_curve']['raw_data']
-        ax.plot(_c_U0[:, 0], _c_U0[:, 1], linewidth=1.5, label=r'$U_{0}$')
-        ax.plot(_c_Ubest[:, 0], _c_Ubest[:, 1], linewidth=1.5, label=r'$U_{\text{opt}}$')
+        #ax.plot(_c_U0[:, 0], _c_U0[:, 1], linewidth=1.5, label=r'$U_{0}$')
+        ax.plot(_c_Ubest[:, 0], _c_Ubest[:, 1], linewidth=1.5, linestyle='-', c='k', label=r'$U_{\text{opt}}$')
         ax.legend(loc="lower right")
-        ax.set_title(f'SNR Karte / AL (Z=13) @ {roi_l}-{roi_r} $\mu m$')
+        #ax.set_title(f'AL (Z=13) @ {roi_l}-{roi_r} $\mu m$')
+        ax.annotate(r'Aluminium (Z=13)', xy=(0.0, 1800), bbox=dict(boxstyle="round", fc="w", ec="#BBBBBB"),
+                     ha='left', va='center')
+
+        ax.annotate(rf'SNR gemittl. $\in$ [{roi_l},{roi_r}]' + r' \SI{}{\micro\meter}', xy=(0.0, 1000),
+                    bbox=dict(boxstyle="round", fc="w", ec="#BBBBBB"),
+                    ha='left', va='center')
+
+        ax.annotate(r'$U \in [50, 60, 80, 90, 100, 120, 130, 150, 160]$ \SI{}{\kilo\volt}', xy=(0.0, 555),
+                    bbox=dict(boxstyle="round", fc="w", ec="#BBBBBB"),
+                    ha='left', va='center')
+
+
         ax.set_yscale(Y_style)
         ax.set_xlabel('Transmission [w.E.]')
-        ax.set_ylabel(r'SNR $[\text{s}^{-1}]$')
+        ax.set_ylabel(r'$\text{SNR}$ [$s^{-1}$]')
         sv_path = os.path.join(path_result, 'plots')
         plt.tight_layout()
         if not os.path.isdir(sv_path):
             os.makedirs(sv_path)
-        fig.savefig(os.path.join(path_result, f'SNR-Karte-ROI-{roi_l}-{roi_r}.pdf'), dpi=600)
+        fig.savefig(os.path.join(path_result, f'SNR-Karte-ROI-{roi_l}-{roi_r}.pdf'), bbox_inches="tight", dpi=600)
 
 
 

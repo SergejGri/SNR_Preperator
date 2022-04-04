@@ -36,7 +36,7 @@ print(f'{__name__} version {".".join([str(v) for v in version])} ({version_date}
 try:
     import matplotlib.pyplot as plt
     import matplotlib as mpl
-    colors = ['#3372F5', '#469D59', '#EE7972', '#E2B43C', '#CC7444', '#002C2B', '#FDEADB', '#BBBBBB']
+    colors = ['#0C5DA5', '#00B945', '#FF9500', '#FF2C00', '#845B97', '#474747', '#9e9e9e']
 
     def get_color_ls(index):
         color = colors[index % len(colors)]
@@ -360,7 +360,11 @@ class SNR_Evaluator():
             "axes.labelsize": 12,  # LaTeX default is 10pt font.
             "font.size": 12,
             "legend.fontsize": 12,  # Make the legend/label fonts
-            "xtick.labelsize": 11,  # a little smaller
+            "xtick.labelsize": 12,  # a little smaller
+            "xtick.top": True,
+            "ytick.right": True,
+            "xtick.direction": "in",
+            "ytick.direction": "in",
             "ytick.labelsize": 12,
             "pgf.preamble": "\n".join([r"\usepackage{libertine}",
                                        r"\usepackage[libertine]{newtxmath}",

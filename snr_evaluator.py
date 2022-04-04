@@ -3,6 +3,7 @@ import datetime
 import os
 import helpers as hlp
 import numpy as np
+from scipy.ndimage import median_filter as mdf
 from image_loader import ImageLoader
 from ext.SNR_spectra import SNR_Evaluator, ImageSeriesPixelArtifactFilterer
 
@@ -52,14 +53,16 @@ class SNREvaluator:
         return self.EVA
 
 
-    def calc_transmission(self, data, refs, darks):
+    def calc_transmission_CT(self, data, refs, darks):
         darks_avg = np.nanmean(darks, axis=0)
         refs_avg = np.nanmean(refs, axis=0)
         data_avg = np.nanmean(data, axis=0)
         img = (data_avg - darks_avg) / (refs_avg - darks_avg)
+        img = mdf(input=img, size=3)
         rng_min = np.nanmin(img)
         rng_max = np.nanmax(img)
         sum = 0
+
         counter = 0
         for i in range(0, img.shape[0], 1):
             for j in range(0, img.shape[1], 1):
@@ -67,6 +70,14 @@ class SNREvaluator:
                     sum += img[i, j]
                     counter += 1
         return sum/counter
+
+
+    def calc_transmission_step_wedge(self, data, refs, darks):
+        darks_avg = np.nanmean(darks, axis=0)
+        refs_avg = np.nanmean(refs, axis=0)
+        data_avg = np.nanmean(data, axis=0)
+        img = (data_avg - darks_avg) / (refs_avg - darks_avg)
+        return np.nanmedian(img)
 
 
     def snr_3D(self, generator, result_path, data: np.ndarray, refs: np.ndarray, darks: np.ndarray, texp, angle):
@@ -88,7 +99,7 @@ class SNREvaluator:
         path_sv_snr = os.path.join(result_path, 'snr')
         path_sv_T = _path_T = os.path.join(result_path, 'transmission')
 
-        transmission = self.calc_transmission(data, refs, darks)
+        transmission = self.calc_transmission_CT(data, refs, darks)
 
         if not os.path.exists(path_sv_T):
             os.makedirs(path_sv_T)
@@ -120,8 +131,8 @@ class SNREvaluator:
 
             path_darks = os.path.join(base_path, dir, 'darks')
             path_refs = os.path.join(base_path, dir, 'refs')
-            refs = loader.load_stack(path=path_refs, stack_range=(0, 200))
-            darks = loader.load_stack(path=path_darks, stack_range=(0, 200))
+            refs = loader.load_stack(path=path_refs, stack_range=(0, 50))
+            darks = loader.load_stack(path=path_darks, stack_range=(0, 50))
             refs = refs[view]
             darks = darks[view]
 
@@ -143,7 +154,7 @@ class SNREvaluator:
                 data = data[view]
 
                 if not self.only_snr:
-                    T = self.calc_transmission(data, refs, darks)
+                    T = self.calc_transmission_step_wedge(data, refs, darks)
                     self.write_T_data(psave_T, _d, T, voltage)
 
                 self.EVA.estimate_SNR(data, refs, darks, series_filterer=self.filterer, exposure_time=t_exp,

@@ -1,6 +1,7 @@
 import time
 import numpy as np
 import os
+import math
 import helpers as hlp
 import matplotlib.pyplot as plt
 from numpy.polynomial import polynomial as P
@@ -84,9 +85,8 @@ class SNRMapGenerator:
             _d = hlp.extract(what='d', dfile=file)
             if _d == d:
                 kV, mean_SNR = self.calc_avg_SNR(file=file, lb=lb, rb=rb)
-                if self.kV_filter is not None:
-                    if kV in self.kV_filter:
-                        del kV, mean_SNR
+                if kV in self.kV_filter:
+                    del kV, mean_SNR
                 else:
                     kvs.append(kV)
                     snr_means.append(mean_SNR)
@@ -209,6 +209,12 @@ class SNRMapGenerator:
         fit_new_axis = f(new_x_axis)
 
         kv_steps_full = np.arange(kV[0], kV[-1]+1, step=kv_step_width)
+
+        for i in range(kv_steps_full.size-1, 0, -1):
+            if kv_steps_full[i] != kV[-1]:
+                kv_steps_full = kv_steps_full[:-1]
+                break
+
         if 180.0 < np.max(kv_steps_full):
             val, idx = hlp.find_nearest(kv_steps_full, 180)
             kv_steps_full = kv_steps_full[:idx+1]
