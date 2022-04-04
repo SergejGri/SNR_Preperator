@@ -2,7 +2,6 @@ import os
 import sys
 import numpy as np
 from scipy import interpolate
-
 from ct_operations import calc_T_for_stack
 from ct_operations import merging_multi_img_CT
 from snr_evaluator import SNREvaluator
@@ -16,13 +15,7 @@ import matplotlib.pyplot as plt
 from cycler import cycler
 
 
-
-
-
-
-
 class Activator:
-
     DEBUG = True
     AVG_MAX = 16
     AVG_MIN = 1
@@ -30,7 +23,6 @@ class Activator:
     def __init__(self, attributes):
         self.paths = attributes.paths
         self.p_fin = attributes.paths['result_path']
-        #self.p_fin = os.path.join(os.path.dirname(self.paths['MAP_T_files']), 'Karte')
         self.fCT_data = {'T': None, 'snr': None, 'd': None, 'theta': None, 'texp': None, 'avg_num': None}
         self.CT_data = {'T': None, 'snr': None, 'd': None, 'theta': None, 'texp': None, 'avg_num': None}
 
@@ -52,8 +44,8 @@ class Activator:
         if attributes.excluded_kvs is not None:
             self.kv_ex = attributes.excluded_kvs
         self.ds_ex = []
-        if attributes.excluded_thicknesses is not None:
-            self.ds_ex = attributes.excluded_thicknesses
+        if attributes.excluded_ds is not None:
+            self.ds_ex = attributes.excluded_ds
 
         if attributes.spatial_size:
             self._ssize = attributes.spatial_size
@@ -74,10 +66,10 @@ class Activator:
 
         self.kV_interpolation = False
 
-        if attributes.virtual_curve_step is None:
+        if attributes.h_curve_step is None:
             self.v_curve_step = 0.1
         else:
-            self.v_curve_step = attributes.virtual_curve_step
+            self.v_curve_step = attributes.h_curve_step
 
         self.U0_intercept = {'x': {}, 'y': {}, 'd': {}}
         self.Ubest_curve = {'val': None, 'fit': {}, 'data': {}}
@@ -91,7 +83,6 @@ class Activator:
                                          ds=attributes.ds,
                                          kv_filter=attributes.excluded_kvs)
         self._plt = _plt()
-
 
     def __call__(self, create_plot: bool = True, detailed: bool = False):
         self.evaluate_fCT(image_loader=ImageLoader(used_SCAP=False, remove_lines=False, load_px_map=False))
@@ -108,12 +99,9 @@ class Activator:
             plot_algo_stepwise(self.map)
         self.extract_data_for_fCT()
         self.reset_ct_data()
-        self.evaluate_CT_merge()
+        self.SNR_m()
         self.reset_ct_data()
-        self.evaluate_CT_no_merge()
-        #self.reset_ct_data()
-
-
+        self.SNR_no_merge()
 
     def vertical_interpolation(self, points: np.array):
         '''
@@ -128,7 +116,6 @@ class Activator:
         curve = np.vstack((x_fit, y_fit)).T
         return curve, data
 
-
     def make_monokV_curve(self, kV):
         # suche in jeder Kurve den index der np.where(curve == kV) ist
         X = []
@@ -142,7 +129,6 @@ class Activator:
             Y.append(y_val[0])
         return np.vstack((X, Y)).T
 
-
     def filter_candidates(self, T_val):
         curves = {}
         for d in self.map['d_curves']:
@@ -152,12 +138,10 @@ class Activator:
                 curves[d] = self.map['d_curves'][d]
         return curves
 
-
     def create_monoKV_curve(self, kV_val):
         monokV_points = self.make_monokV_curve(kV=kV_val)
         curve_fit, data_points = self.vertical_interpolation(points=monokV_points)
         return curve_fit, data_points[::-1]
-
 
     def make_mono_kv_curve(self, U_val):
         T = []
@@ -175,7 +159,6 @@ class Activator:
         T = np.asarray(T)
         SNR = np.asarray(SNR)
         return T, SNR
-
 
     def find_intercept(self, kv_val, T_val):
         """
@@ -217,13 +200,11 @@ class Activator:
         iT = self.map['d_curves'][_d]['full'][:, 1][idx]
         return iT, isnr, _d
 
-
     def create_U0_curve(self, U0):
         self.map['U0_curve'] = {'U0_val': None, 'raw_data': None}
         T, SNR = self.make_mono_kv_curve(U_val=U0)
         self.map['U0_curve']['U0_val'] = U0
         self.map['U0_curve']['raw_data'] = hlp.merge_v1D(T, SNR)
-
 
     def create_Ubest_curve(self, d):
         _c = self.map['d_curves'][d]['full']
@@ -237,7 +218,6 @@ class Activator:
         self.map['Ubest_curve']['Ubest_val'] = kv_opt
         self.map['Ubest_curve']['raw_data'] = hlp.merge_v1D(T, SNR)
 
-
     def get_avgs_from_fCT(self, btexp):
         fCT_texp = self.fCT_data['texp']
         loc_avgs = []
@@ -245,7 +225,6 @@ class Activator:
             avg_nmum = hlp.round_to_nearest(btexp, fCT_texp[i])
             loc_avgs.append(avg_nmum)
         return np.asarray(loc_avgs)
-
 
     def extract_data_for_fCT(self):
         fCT_T = np.asarray(self.fCT_data['T'])
@@ -257,7 +236,6 @@ class Activator:
         self.fCT_data['avg_num'] = avgs
         self.write_data(key='fct')
         self.write_avglist_for_kilian(N=1500)
-
 
     def extract_MAP_data(self, kv_val: float, T: np.ndarray):
         '''
@@ -271,7 +249,6 @@ class Activator:
             list_iT.append(iT), list_isnr.append(isnr), list_id.append(id)
         return np.asarray(list_iT), np.asarray(list_isnr), np.asarray(list_id)
 
-
     def evaluate_fCT(self, image_loader):
         imgs = image_loader.load_stack(path=self.paths['fCT_imgs'])
         refs = image_loader.load_stack(path=self.paths['fCT_refs'])
@@ -282,10 +259,7 @@ class Activator:
         self.fCT_data['T'], self.fCT_data['theta'] = calc_T_for_stack(imgs=imgs, refs=refs, darks=darks, detailed=True)
         self.T_min, _ = hlp.find_min(self.fCT_data['T'])
 
-
-    # 30er schritte
-    def evaluate_CT_merge(self):
-
+    def SNR_m(self):
         loader = ImageLoader(used_SCAP=False, remove_lines=False, load_px_map=False)
         loader_nh = ImageLoader(used_SCAP=False, remove_lines=False, load_px_map=False)
         loader_nh.header = 0  # must be assigned additionally, since merged imgs do not contain a header
@@ -297,9 +271,6 @@ class Activator:
             list_images = [f for f in os.listdir(self.paths['CT_imgs']) if os.path.isfile(os.path.join(self.paths['CT_imgs'], f))]
             l_images = sorted(list_images, key=lambda x: int(x.partition('_none__')[2].partition('.raw')[0]))
             self.paths['CT_avg_imgs'] = merging_multi_img_CT(self, self.paths['CT_imgs'], l_images, self.imgs_per_angle, img_loader=loader)
-            #self.paths['CT_avg_imgs'] = r'\\132.187.193.8\junk\sgrischagin\2022-02-26-sergej-AluFlakes\gated-CT-50kV-480proj-50angles_new_mergings\imgs'
-            # self.perform_mergings(img_stack=refs, key='refs')
-            # self.perform_mergings(img_stack=darks, key='darks')
 
         refs = loader.load_stack(path=self.paths['CT_refs'])
         darks = loader.load_stack(path=self.paths['CT_darks'])
@@ -336,16 +307,12 @@ class Activator:
 
         self.write_data(key='avg')
 
-
-    def evaluate_CT_no_merge(self):
-        print('\n\nperforming SNR evaluations on non merged images\n\n')
-        # 120 schritte
+    def SNR_no_merge(self):
         Ts = []
         snrs = []
         snrst = []
         loader = ImageLoader(used_SCAP=False, remove_lines=False, load_px_map=False)
         snr_evaluator = SNREvaluator(watt=5.0, voltage=50, magnification=4.05956)
-        #list_images = [f for f in os.listdir(self.paths['CT_imgs']) if os.path.isfile(os.path.join(self.paths['CT_imgs'], f))]
         list_images = 24000
         angles = np.arange(0, 360, 360 / self.CT_steps)
 
@@ -360,7 +327,7 @@ class Activator:
         else:
             texp = 0.05
         j = 0
-        for i in range(0, list_images, STEP):      # after debugmode change to range(0, len(list_images), STEP):
+        for i in range(0, list_images, STEP):
             print(f'ct120: {round( j*STEP/list_images ,2)*100} done')
             imgs = loader.load_stack(path=self.paths['CT_imgs'], stack_range=(i, i + STEP))
             imgs = imgs[self.view]
@@ -379,8 +346,6 @@ class Activator:
         self.CT_data['snrt'] = np.asarray(snrst)
         self.write_data_small(key='data_no_merge')
 
-        #Ubest = self.map['Ubest_curve']['Ubest_val']
-        #_, _, self.CT_data['d'] = self.extract_MAP_data(kv_val=Ubest, T=self.CT_data['T'])
         _, _, self.CT_data['theta'] = self.interpolate_avg_num(angles=self.CT_steps)
         self.CT_data['texp'] = np.empty(self.CT_data['snr'].size)
         self.CT_data['texp'].fill(self.BASE_texp)
@@ -388,10 +353,9 @@ class Activator:
         self.CT_data['avg_num'].fill(1)
         self.write_data(key='not_avg')
 
-
     def write_data(self, key):
         '''
-        :param key: possible key values fct, ct30 and ct120
+        :param key: possible key values "fct", "avg" and "not_avg"
         '''
         res_path = os.path.join(self.paths['result_path'], 'SNR-Karte')
         if not os.path.exists(res_path):
@@ -426,7 +390,6 @@ class Activator:
                                        self.CT_data['avg_num'])
         np.savetxt(os.path.join(res_path, name), merged_arr, header=header_string)
 
-
     def write_data_small(self, key):
         res_path = os.path.join(self.paths['result_path'], 'SNR-Karte')
         if not os.path.exists(res_path):
@@ -438,8 +401,6 @@ class Activator:
 
         np.savetxt(os.path.join(res_path, name), merged_arr, header=header_string)
 
-
-
     def write_mergings(self):
         res_path = os.path.join(self.paths['result_path'], 'SNR-Karte')
         if not os.path.exists(res_path):
@@ -447,13 +408,10 @@ class Activator:
         name = f'avgs.txt'
         header_string = f'avgs, texp, theta'
         merged_arr = hlp.merge_v1D(self.CT_data['avg_num'], self.CT_data['texp'], self.CT_data['theta'])
-
         np.savetxt(os.path.join(res_path, name), merged_arr, header=header_string)
-
 
     def reset_ct_data(self):
         self.CT_data = {'T': None, 'snr': None, 'd': None, 'theta': None, 'texp': None, 'avg_num': None}
-
 
     def interpolate_avg_num(self, angles: int):
         CT_avg = []
@@ -473,15 +431,13 @@ class Activator:
 
         return CT_avg, CT_texp, CT_theta
 
-
     def write_avglist_for_kilian(self, N):
-        res_path = r'C:\Users\Sergej Grischagin\Desktop\final_evaluations\3D_SNR_eval_10032022_biggerview_Cylinder_v1_ss35\SNR-Karte'
+        res_path = r''
         name = rf'avgs-for-CT-{N}proj.txt'
         header_string = r'# theta, texp, avg'
         avg, texp, theta = self.interpolate_avg_num(angles=N)
         merged_arr = hlp.merge_v1D(theta, texp, avg)
         np.savetxt(os.path.join(res_path, name), merged_arr, header=header_string)
-
 
     def calc_texp(self, snr: np.ndarray):
         t_exp = []
@@ -497,7 +453,6 @@ class Activator:
             avgs.append(multiplier)
             t_exp.append(round(multiplier * self.BASE_texp, 2))
         return np.asarray(t_exp), np.asarray(avgs)
-
 
     def perform_mergings(self, key, img_stack):
         if key != 'darks' and key != 'refs':
@@ -526,8 +481,6 @@ class Activator:
         self.MAX_CORR_IMGS = len(next(os.walk(os.path.join(fin_dir, subdir)))[2])
         self.paths[f'CT_avg_{key}'] = fin_dir
 
-
-
     def activate_map(self):
         self.map = self.generator(spatial_range=self._ssize)
         self.map['T_min'] = self.T_min
@@ -539,14 +492,9 @@ class Activator:
         self.map['iU0']['y'], \
         self.map['iU0']['d'] = self.find_intercept(kv_val=self._U0, T_val=self.T_min)
 
-
-
-
-
     def printer(self):
         kV_opt = self.map['Ubest_curve']['Ubest_val']
         print('\noptimal voltage for measurement:\n' + f'{kV_opt} kV' + '\n')
-
 
     def check_practicability(self, avg_arr):
         threshold = 4
@@ -555,10 +503,6 @@ class Activator:
                 print(f'threshold value is set to {threshold}. But values in avg_array seem to extend it.')
                 print(f'Change usr_snr or spatial range for the evaluation.')
                 break
-
-
-
-
 
 
 def plot_map_ubest(obj):
@@ -601,7 +545,6 @@ def plot_map_ubest(obj):
     plt.tight_layout()
     plt.savefig(r'C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\overview_plots\map_schritt2.pdf',
                 bbox_inches='tight', dpi=600)
-
 
 
 def plot_algo_stepwise(obj):
@@ -664,10 +607,8 @@ def plot_algo_stepwise(obj):
 
     plt.yscale('log')
     plt.tight_layout()
-    plt.savefig(r'C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\Algo_steps\map_schritt1.pdf',
+    plt.savefig(r'',
                 bbox_inches='tight', dpi=600)
-
-
 
 
     plt.gca().set_prop_cycle(None)
@@ -688,10 +629,8 @@ def plot_algo_stepwise(obj):
 
     plt.yscale('log')
     plt.tight_layout()
-    plt.savefig(r'C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\Algo_steps\map_schritt2.pdf',
+    plt.savefig(r'',
                 bbox_inches='tight', dpi=600)
-
-
 
 
     # ========================================= SCHRITT 3: U0-T_min intercept =======================================
@@ -714,10 +653,8 @@ def plot_algo_stepwise(obj):
     plt.yscale('log')
     plt.legend(loc=4)
     plt.tight_layout()
-    plt.savefig(r'C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\Algo_steps\map_schritt3.pdf',
+    plt.savefig(r'',
                 bbox_inches='tight', dpi=600)
-
-
 
 
     # ========================================= SCHRITT 4: SELECTION CURVE for U0 =======================================
@@ -747,10 +684,8 @@ def plot_algo_stepwise(obj):
     plt.yscale('log')
     plt.legend(loc=4)
     plt.tight_layout()
-    plt.savefig(r'C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\Algo_steps\map_schritt4.pdf',
+    plt.savefig(r'',
                 bbox_inches='tight', dpi=600)
-
-
 
 
     # ========================================= SCHRITT 5: CURVE U0 =======================================
@@ -780,10 +715,8 @@ def plot_algo_stepwise(obj):
     plt.yscale('log')
     plt.legend(loc=4)
     plt.tight_layout()
-    plt.savefig(r'C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\Algo_steps\map_schritt5.pdf',
+    plt.savefig(r'',
                 bbox_inches='tight', dpi=600)
-
-
 
 
     # ========================================= SCHRITT 6: SNR(T) WERTE AUSLESEN =======================================
@@ -807,11 +740,6 @@ def plot_algo_stepwise(obj):
     ax.axes.xaxis.set_visible(False)
     ax.axes.yaxis.set_visible(False)
 
-    x1, y1 = [0.114, 0.114], [0, 0.001]
-    x2, y2 = [-0.05, -0.01], [0.238, 0.238]
-
-    #plt.axhline(y=0.237, xmin=0.0, xmax=0.025, color='#FF2C00', linestyle='-', linewidth=0.5, zorder=15)
-    #plt.axvline(x=0.114, ymin=0.0, ymax=0.02, color='#FF2C00', linestyle='-', linewidth=0.5, zorder=15)
     plt.yscale('log')
 
     ax.annotate(r'\textbf{Schritt 6}', xy=(txt_x, txt_y), zorder=15,
@@ -826,9 +754,5 @@ def plot_algo_stepwise(obj):
 
     plt.legend(loc=4)
     plt.tight_layout()
-    plt.savefig(r'C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\Algo_steps\map_schritt6.pdf',
+    plt.savefig(r'',
                 bbox_inches='tight', dpi=600)
-
-
-
-    print('test')

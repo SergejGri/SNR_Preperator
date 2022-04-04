@@ -307,9 +307,6 @@ class StepWedgeEvaluator(SNREvaluator):
         if ex_ds is not None:
             self.ex_ds = ex_ds
 
-
-
-
     def snr_2D_stepwedge(self):
         properties = self.get_properties()
 
@@ -364,7 +361,6 @@ class StepWedgeEvaluator(SNREvaluator):
             SNR_eval.finalize_figure(figure, title=f'{dir} @{self.watt}W',
                                      save_path=os.path.join(psave_SNR, f'{voltage}kV'))
 
-
     def get_properties(self):
         directories = {}
         for dirr in os.listdir(self.path_base):
@@ -378,7 +374,6 @@ class StepWedgeEvaluator(SNREvaluator):
                     dict_sdir = {'ds': subdirs, 't_exp': t_exp}
                     directories[dirr] = dict_sdir
         return directories
-
 
     def get_subdirs(self, dir):
         subdirs = []
@@ -401,7 +396,6 @@ class StepWedgeEvaluator(SNREvaluator):
                   f'Please make sure your thickness folders are following the naming convention.\n')
             return 0
 
-
     def write_T_data(self, path_T, d, T, voltage):
         file_l = f'{d}_mm.csv'
         if DETAILED:
@@ -411,7 +405,6 @@ class StepWedgeEvaluator(SNREvaluator):
         with open(os.path.join(_path_T), 'a+') as f_l:
             f_l.write('{};{}\n'.format(voltage, T))
             f_l.close()
-
 
     @staticmethod
     def prepare_imgs(path, dir, subf):
@@ -424,11 +417,9 @@ class StepWedgeEvaluator(SNREvaluator):
             ref_imgs = os.path.join(path, dir, 'refs')
         return imgs, ref_imgs, dark_imgs
 
-
     @staticmethod
     def filter_area_to_t(thick):
         return int(thick)
-
 
 
 def get_t_exp_old(path):

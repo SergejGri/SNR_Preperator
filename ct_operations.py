@@ -2,7 +2,6 @@ import os
 import numpy as np
 from ext import file
 import helpers as hlp
-from ext.SNR_spectra import ImageSeriesPixelArtifactFilterer
 
 
 def calc_T_for_stack(imgs: np.ndarray, refs: np.ndarray, darks: np.ndarray, detailed):
@@ -46,16 +45,14 @@ def calc_T_for_stack(imgs: np.ndarray, refs: np.ndarray, darks: np.ndarray, deta
         angle += STEP
     return np.asarray(list_T), np.asarray(list_theta)
 
-
 def merging_multi_img_CT(object, base_path, l_images, imgs_per_angle, img_loader):
-    #images = sorted(list_images)
     images_cp = l_images.copy()
     CT_avg = object.CT_data['avg_num']
     angles_num = int(len(l_images) / imgs_per_angle)
     angles = np.linspace(0, 360, angles_num, endpoint=False)
     sub_bin = object.sub_bin
     bin = int(imgs_per_angle / sub_bin)
-    #fin_dir = make_infrastructure(path=base_path)
+
     fin_dir = object.paths['merged_imgs']
 
     stack_start = 0
@@ -86,23 +83,17 @@ def merging_multi_img_CT(object, base_path, l_images, imgs_per_angle, img_loader
     hlp.rm_files(path=fin_dir, extension='info')
     return fin_dir
 
-
-
-
-
 def remove_tmp_imgs(path):
     for f in os.listdir(path):
         if not f.endswith(".raw"):
             continue
         os.remove(os.path.join(path, f))
 
-
 def make_infrastructure(path):
     final_dir = os.path.join(os.path.dirname(path), f'merged-CT')
     if not os.path.exists(final_dir):
         os.makedirs(final_dir)
     return final_dir
-
 
 def make_num(num):
     num = str(num)
@@ -116,8 +107,6 @@ def make_num(num):
     else:
         num_str = num
     return num_str
-
-
 
 def build_substack_index(bin_size, stack, avg):
     idx = [[np.arange(bin_size)] for _ in range(int(stack/bin_size))]

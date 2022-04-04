@@ -122,9 +122,9 @@ def is_list(expression):
 
 def load_bad_pixel_map(crop, scap):
     if scap:
-        path_to_map = r'\\132.187.193.8\junk\sgrischagin\BAD-PIXEL-bin1x1-MetRIC-SCAP.tif'
+        path_to_map = r''
     else:
-        path_to_map = r'\\132.187.193.8\junk\sgrischagin\BAD-PIXEL-bin1x1-MetRIC.tif'
+        path_to_map = r''
     _crop = slice(crop[0][0], crop[0][1]), slice(crop[1][0], crop[1][1])
     bad_pixel_map = file.image.load(path_to_map)[_crop]
     print(f'\n{path_to_map} loaded as bad pixel map. \n')
