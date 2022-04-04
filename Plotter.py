@@ -4,7 +4,6 @@ import helpers as hlp
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from cycler import cycler
-import matplotlib.gridspec as gridspec
 
 
 class Plotter:
@@ -73,17 +72,12 @@ class Plotter:
 
             else:
                 pass
-                #_c = '#BBBBBB'
-                #_a = 0.5
-                #ax.plot(_c_fit[:, 1], _c_fit[:, 3], linestyle='-', zorder=5, linewidth=0.8, alpha=_a, c=_c)
 
-        #ax.axvline(x=object['T_min'], color='k', linestyle='--', linewidth=1)
         _c_U0 = object['U0_curve']['raw_data']
         _c_Ubest = object['Ubest_curve']['raw_data']
-        #ax.plot(_c_U0[:, 0], _c_U0[:, 1], linewidth=1.5, label=r'$U_{0}$')
         ax.plot(_c_Ubest[:, 0], _c_Ubest[:, 1], linewidth=1.5, linestyle='-', c='k', label=r'$U_{\text{opt}}$')
         ax.legend(loc="lower right")
-        #ax.set_title(f'AL (Z=13) @ {roi_l}-{roi_r} $\mu m$')
+
         ax.annotate(r'Aluminium (Z=13)', xy=(0.0, 1800), bbox=dict(boxstyle="round", fc="w", ec="#BBBBBB"),
                      ha='left', va='center')
 
@@ -104,8 +98,6 @@ class Plotter:
         if not os.path.isdir(sv_path):
             os.makedirs(sv_path)
         fig.savefig(os.path.join(path_result, f'SNR-Karte-ROI-{roi_l}-{roi_r}.pdf'), bbox_inches="tight", dpi=600)
-
-
 
     def T_kv_plot(self, path_result: str, object, Y_style: str = 'log', detailed: bool = False):
         roi_l = object['ROIs']['lb']
@@ -138,7 +130,6 @@ class Plotter:
         plt.tight_layout()
         fig.savefig(os.path.join(path_result, 'plots', f'T_kV-{roi_l}-{roi_r}.pdf'), dpi=600)
 
-
     def snr_kv_plot(self, path_result: str, object, Y_style: str = 'log', detailed: bool = False):
         roi_l = object['ROIs']['lb']
         roi_r = object['ROIs']['rb']
@@ -169,7 +160,6 @@ class Plotter:
             os.makedirs(sv_path)
         plt.tight_layout()
         fig.savefig(os.path.join(path_result, 'plots', f'snr_kV-{roi_l}-{roi_r}.pdf'), dpi=600)
-
 
     def compare_fCT_CT(self, object):
         fig, (ax1, ax2, ax3) = plt.subplots(3)
@@ -214,13 +204,11 @@ class Plotter:
         plt.tight_layout()
         plt.savefig(os.path.join(object.p_fin, 'Overview_plot_ROI{ROIl}-{ROIr}.pdf'), dpi=600)
 
-
     def fit_me_for_plot(self, _c):
         a, b, c = np.polyfit(_c[:, 1], _c[:, 2], deg=2)
         x = np.linspace(_c[:, 1][0], _c[:, 1][-1], 141)
         y = self.func_poly(x, a, b, c)
         return x, y
-
 
     def rm_underscore(self, d):
         d = d.replace('_', ' ')
@@ -230,7 +218,6 @@ class Plotter:
     @staticmethod
     def func_poly(x, a, b, c):
         return a * x ** 2 + b * x + c
-
 
 
 def get_color_ls(index):

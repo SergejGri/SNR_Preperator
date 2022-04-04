@@ -38,11 +38,10 @@ custom_cycler = cycler('linestyle', ['-', '--']) * cycler('color', ['#0C5DA5', '
 plt.rc('axes', prop_cycle=custom_cycler)
 
 
-
 def kv_T_kv_SNR():
     plt.rcParams["figure.figsize"] = (6.3, 7.1)
-    base_path = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\20220120_stepWedge\Karte\Kurven'
-    path_result = r'C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\man_evaluations\Karte_snr_kv_T'
+    base_path = r''
+    path_result = r''
     raw_mm = [0, 2, 4, 8, 12, 16, 20, 24, 28]
 
     files = {}
@@ -87,8 +86,8 @@ def kv_T_kv_SNR():
 
 def kv_SNR():
     plt.rcParams["figure.figsize"] = (6.3, 7.1)
-    base_path = r'C:\Users\Sergej Grischagin\Desktop\most_final_evaluations\20220223_stepWedge\Karte\Kurven'
-    path_result = r'C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\man_evaluations\Karte_snr_kv_T'
+    base_path = r''
+    path_result = r''
     raw_mm = [0, 2, 4, 8, 12, 16, 20, 24, 28]
 
     files = {}
@@ -116,26 +115,19 @@ def kv_SNR():
 
     ax1.set_ylabel(r'U')
     ax1.set_xlabel(r'SNR')
-    #ax2.set_xlabel(r'Spannung $U$ [\SI{e3}{\kilo\volt}]')
-    #ax2.set_ylim([0.005, 200])
-    #ax2.set_ylabel(r'SNR [$s^{-1}$]')
     ax1.set_xscale('log')
-
     fig.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=0.5, hspace=0.5)
-
     ax1.legend(loc='lower center', fancybox=True, shadow=False, ncol=5, handletextpad=0.2, labelspacing=.3)
     plt.tight_layout()
     plt.savefig(os.path.join(path_result, f'U(SNR).pdf'), bbox_inches="tight", dpi=600)
-
-
 
 
 def T_SNR_karte():
     plt.rcParams["figure.figsize"] = (8.77, 6.3)
     plt.rc('lines', linewidth=2)
 
-    base_path = r'C:\Users\Sergej Grischagin\Desktop\final_evaluations\20220223_stepWedge\Karte\Kurven'
-    path_result = r'C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\man_evaluations\Karte_snr_kv_T'
+    base_path = r''
+    path_result = r''
     raw_mm = [0, 2, 4, 8, 12, 16, 20, 24, 28, 32]
 
     files = {}
@@ -187,13 +179,12 @@ def T_SNR_karte():
     plt.savefig(os.path.join(path_result, f'T_SNR_Karte.pdf'), bbox_inches="tight", dpi=600)
 
 
-
 def d_kv():
     plt.rcParams["figure.figsize"] = (8.74, 6)
     plt.rc('lines', linewidth=2)
 
-    base_path = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\20220120_stepWedge\Karte\Kurven'
-    path_result = r'C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\man_evaluations\Karte_snr_kv_T'
+    base_path = r''
+    path_result = r''
     raw_mm = [0, 2, 4, 8, 12, 16, 20, 24, 28]
 
     files = {}
@@ -245,13 +236,12 @@ def d_kv():
     plt.savefig(os.path.join(path_result, f'd_kv.pdf'), bbox_inches="tight", dpi=600)
 
 
-
 def T_SNR_karte():
     plt.rcParams["figure.figsize"] = (8.74, 6)
     plt.rc('lines', linewidth=2)
 
-    base_path = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\20220120_stepWedge\Karte\Kurven'
-    path_result = r'C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\man_evaluations\Karte_snr_kv_T'
+    base_path = r''
+    path_result = r''
     raw_mm = [0, 2, 4, 8, 12, 16, 20, 24, 28, 32]
 
     files = {}
@@ -310,11 +300,10 @@ def T_SNR_karte():
     plt.savefig(os.path.join(path_result, f'T_SNR_Karte.pdf'), bbox_inches="tight", dpi=600)
 
 
-
 def log():
     plt.rcParams["figure.figsize"] = (6.3, 8)
-    base_path = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\20220120_stepWedge\Karte\Kurven'
-    path_result = r'C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\man_evaluations\Karte_snr_kv_T'
+    base_path = r''
+    path_result = r''
     raw_mm = [0, 2, 4, 8, 12, 16, 20, 24, 28]
 
     files = {}
@@ -353,7 +342,6 @@ def log():
     ax2.legend(loc='lower center', fancybox=True, shadow=False, ncol=5, handletextpad=0.1, labelspacing=.3)
     plt.tight_layout()
     plt.savefig(os.path.join(path_result, f'kV-T-ges.pdf'), bbox_inches="tight", dpi=600)
-
 
 
 kv_SNR()

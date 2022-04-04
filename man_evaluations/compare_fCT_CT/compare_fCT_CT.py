@@ -2,23 +2,22 @@ import os
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
-from matplotlib.ticker import MaxNLocator
 from cycler import cycler
 import numpy as np
 
 
 def compare_fCT_CT():
     pgf_with_latex = {  # setup matplotlib to use latex for output
-        "pgf.texsystem": "pdflatex",  # change this if using xetex or lautex
-        "text.usetex": True,  # use LaTeX to write all text
+        "pgf.texsystem": "pdflatex",    # change this if using xetex or lautex
+        "text.usetex": True,            # use LaTeX to write all text
         "font.family": "serif",
-        "font.serif": [],  # blank entries should cause plots
-        "font.sans-serif": [],  # to inherit fonts from the document
+        "font.serif": [],               # blank entries should cause plots
+        "font.sans-serif": [],          # to inherit fonts from the document
         "font.monospace": [],
-        "axes.labelsize": 12,  # LaTeX default is 10pt font.
+        "axes.labelsize": 12,           # LaTeX default is 10pt font.
         "font.size": 12,
-        "legend.fontsize": 11.5,  # Make the legend/label fonts
-        "xtick.labelsize": 12,  # a little smaller
+        "legend.fontsize": 11.5,
+        "xtick.labelsize": 12,
         "xtick.top": True,
         "ytick.right": True,
         "xtick.direction": "in",
@@ -44,17 +43,17 @@ def compare_fCT_CT():
     ONLY_FCT = False
 
     sv_name = rf'compare_plt_fct_ct_ROI-{ROI}mum_20220318'
-    sv_path = r'C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\man_evaluations\compare_fCT_CT'
+    sv_path = r''
 
     data_fct = np.genfromtxt(
-                    r"C:\Users\Sergej Grischagin\Desktop\most_final_evaluations\3D_SNR_eval_18032022_biggerview_nocylinder_v1_ss-150_SNRB-350\SNR-Karte\fct_data.txt",
+                    r"",
                     skip_header=1)
 
     data_ctm = np.genfromtxt(
-                    r"C:\Users\Sergej Grischagin\Desktop\most_final_evaluations\3D_SNR_eval_18032022_biggerview_nocylinder_v1_ss-150_SNRB-350\SNR-Karte\avg_snr.txt",
+                    r"",
                     skip_header=1)
     data_cto = np.genfromtxt(
-                    r"C:\Users\Sergej Grischagin\Desktop\most_final_evaluations\3D_SNR_eval_18032022_biggerview_nocylinder_v1_ss-150_SNRB-350\SNR-Karte\ct480_data.txt",
+                    r"",
                     skip_header=1)
 
     m               = data_fct[:, 5]
@@ -104,7 +103,6 @@ def compare_fCT_CT():
 
 
     ax1.step(theta, m, linestyle='-', c='k')
-    #ax1.step(theta, m_compare, c='blue')
     ax1.set_ylabel(r'$m$')
     ax1.set_ylim([2.7, 6.5])
     ax1.set_yticks(np.arange(min(m), max(m) + 1, 1.0))
@@ -117,7 +115,6 @@ def compare_fCT_CT():
     ax2.set_ylim([20, 420])
     ax2.legend(loc='best', ncol=1).set_zorder(11)
     ax2.set_yticks(np.arange(20, 420, 50))
-    #ax2.set_xlabel(r'Durchstrahlungswinkel $\theta$ $[^\circ]$')
     ax2.set_ylabel(r'SNR')
     ax2.grid(alpha=0.3, linewidth=1)
     ax2.yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
@@ -144,20 +141,10 @@ def compare_fCT_CT():
                      facecolor=carea, alpha=aarea, zorder=5)
 
     handles, labels = plt.gca().get_legend_handles_labels()
-    #handles.extend([a1])
     ax3.legend(handles=handles, loc='lower left')
     ax3.set_ylim([35, 57])
-    #ax1.annotate(r'\textbf{A}', xy=(0, 5.6), bbox=dict(boxstyle="round", fc="w", ec="#BBBBBB", alpha=0.5),
-    #             ha='center', va='center')
-
-    #ax2.annotate(r'\textbf{B}', xy=(0, 300), bbox=dict(boxstyle="round", fc="w", ec="#BBBBBB", alpha=0.5),
-    #             ha='center', va='center')
-
-
     plt.tight_layout()
     plt.savefig(os.path.join(sv_path, sv_name + '.pdf'), bbox_inches='tight', dpi=600)
-
-
 
 
 def compare_fCT_CT_window():
@@ -197,17 +184,17 @@ def compare_fCT_CT_window():
     ONLY_FCT = False
 
     sv_name = rf'compare_window_ROI-{ROI}mum'
-    sv_path = r'C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\man_evaluations\compare_fCT_CT'
+    sv_path = r''
 
     data_fct = np.genfromtxt(
-                    r"C:\Users\Sergej Grischagin\Desktop\most_final_evaluations\3D_SNR_eval_18032022_biggerview_nocylinder_v1_ss-150_SNRB-350\SNR-Karte\fct_data.txt",
+                    r"",
                     skip_header=1)
 
     data_ctm = np.genfromtxt(
-                    r"C:\Users\Sergej Grischagin\Desktop\most_final_evaluations\3D_SNR_eval_18032022_biggerview_nocylinder_v1_ss-150_SNRB-350\SNR-Karte\avg_snr.txt",
+                    r"",
                     skip_header=1)
     data_cto = np.genfromtxt(
-                    r"C:\Users\Sergej Grischagin\Desktop\most_final_evaluations\3D_SNR_eval_18032022_biggerview_nocylinder_v1_ss-150_SNRB-350\SNR-Karte\ct480_data.txt",
+                    r"",
                     skip_header=1)
 
     m               = data_fct[:, 5]
@@ -305,17 +292,17 @@ def compare_SNRm_SNRo():
     ONLY_FCT = False
 
     sv_name = rf'compare_SNRm-SNRo-{ROI}mum_20220318'
-    sv_path = r'C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\man_evaluations\compare_fCT_CT'
+    sv_path = r''
 
     data_fct = np.genfromtxt(
-        r"C:\Users\Sergej Grischagin\Desktop\most_final_evaluations\3D_SNR_eval_18032022_biggerview_nocylinder_v1_ss-150_SNRB-350\SNR-Karte\fct_data.txt",
+        r"",
         skip_header=1)
 
     data_ctm = np.genfromtxt(
-        r"C:\Users\Sergej Grischagin\Desktop\most_final_evaluations\3D_SNR_eval_18032022_biggerview_nocylinder_v1_ss-150_SNRB-350\SNR-Karte\avg_snr.txt",
+        r"",
         skip_header=1)
     data_cto = np.genfromtxt(
-        r"C:\Users\Sergej Grischagin\Desktop\most_final_evaluations\3D_SNR_eval_18032022_biggerview_nocylinder_v1_ss-150_SNRB-350\SNR-Karte\ct480_data.txt",
+        r"",
         skip_header=1)
 
     m = data_fct[:, 5]
@@ -353,10 +340,6 @@ def compare_SNRm_SNRo():
     txtpad = 0.05
     afct = 1
 
-    #mean_fct = np.mean(fct_snr)
-    #median_fct = np.median(fct_snr)
-    #print(mean_fct)
-    #print(median_fct)
     ax1.step(theta, m, linestyle='-', c='#0C5DA5')
     ax1.set_ylabel(r'$m$')
     ax1.set_ylim([2.7, 6.5])
@@ -424,14 +407,14 @@ def compare_T_only():
     sv_path = r'C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\man_evaluations\compare_fCT_CT'
 
     data_fct = np.genfromtxt(
-                    r"C:\Users\Sergej Grischagin\Desktop\most_final_evaluations\3D_SNR_eval_18032022_biggerview_nocylinder_v1_ss-150_SNRB-350\SNR-Karte\fct_data.txt",
+                    r"",
                     skip_header=1)
 
     data_ctm = np.genfromtxt(
-                    r"C:\Users\Sergej Grischagin\Desktop\most_final_evaluations\3D_SNR_eval_18032022_biggerview_nocylinder_v1_ss-150_SNRB-350\SNR-Karte\avg_snr.txt",
+                    r"",
                     skip_header=1)
     data_cto = np.genfromtxt(
-                    r"C:\Users\Sergej Grischagin\Desktop\most_final_evaluations\3D_SNR_eval_18032022_biggerview_nocylinder_v1_ss-150_SNRB-350\SNR-Karte\ct480_data.txt",
+                    r"",
                     skip_header=1)
 
     m               = data_fct[:, 5]
