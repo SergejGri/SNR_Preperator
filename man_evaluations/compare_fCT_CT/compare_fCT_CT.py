@@ -404,7 +404,7 @@ def compare_T_only():
     ONLY_FCT = False
 
     sv_name = rf'compare_plt_T_only_ROI-{ROI}mum_20220318'
-    sv_path = r'C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\man_evaluations\compare_fCT_CT'
+    sv_path = r'XXX'
 
     data_fct = np.genfromtxt(
                     r"",
