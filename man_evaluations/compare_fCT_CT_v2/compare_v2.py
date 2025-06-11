@@ -45,17 +45,17 @@ def compare_v2():
     ONLY_FCT = False
 
     sv_name = rf'compare_fct_ct_ROI-{ROI}mum_newversion'
-    sv_path = r'C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\man_evaluations\compare_fCT_CT_v2'
+    sv_path = r'XXX'
 
     data_fct = np.genfromtxt(
-        r"C:\Users\Sergej Grischagin\Desktop\final_evaluations\3D_SNR_eval_10032022_biggerview_Cylinder_v1_ss20\SNR-Karte\fct_data.txt",
+        r"XXX",
         skip_header=1)
 
     data_ct30 = np.genfromtxt(
-        r"C:\Users\Sergej Grischagin\Desktop\final_evaluations\3D_SNR_eval_10032022_biggerview_Cylinder_v1_ss20\SNR-Karte\data_merge_data_small.txt",
+        r"XXX",
         skip_header=1)
     data_ct120 = np.genfromtxt(
-        r"C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\3D_SNR_eval_24012022_view_only_Cylinder_v1_ss58_without_bad_px\SNR-Karte\ct120_data.txt",
+        r"XXX",
         skip_header=1)
 
     theta = np.arange(0, 360, 7.2)
