@@ -10,9 +10,9 @@ def eval():
 
     kv = 80
 
-    path_darks = os.path.join(r'\\132.187.193.8\junk\sgrischagin\2021-11-29-sergej-AluKeil-5W\80kV\darks')
-    path_refs = os.path.join(r'\\132.187.193.8\junk\sgrischagin\2021-11-29-sergej-AluKeil-5W\80kV\refs')
-    path_images = os.path.join(r'\\132.187.193.8\junk\sgrischagin\2021-11-29-sergej-AluKeil-5W\80kV\2')
+    path_darks = os.path.join(r'PATH_TO_FILES')
+    path_refs = os.path.join(r'PATH_TO_FILES')
+    path_images = os.path.join(r'PATH_TO_FILES')
     refs = loader.load_stack(path=path_refs, stack_range=(0, 280))
     darks = loader.load_stack(path=path_darks, stack_range=(0, 280))
     #imgs = loader.load_stack(path=path_images)
@@ -40,7 +40,7 @@ def eval():
 
     print('finalizing figure...')
     SNR_eval.finalize_figure(figure, title=f'img num: {img_num}',
-                             save_path=os.path.join(r"C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\man_evaluations", f'{kv}kV_imgsnum{img_num}.pdf'))
+                             save_path=os.path.join(r"PATH_TO_FILES", f'{kv}kV_imgsnum{img_num}.pdf'))
 
 
 eval()
