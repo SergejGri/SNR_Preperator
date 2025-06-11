@@ -20,10 +20,10 @@ def eval():
     loader = ImageLoader(used_SCAP=True, remove_lines=False, load_px_map=False)
 
 
-    path_darks = os.path.join(r'\\132.187.193.8\junk\sgrischagin\2021-11-29-sergej-AluKeil-5W\60kV\darks')
-    path_refs = os.path.join(r'\\132.187.193.8\junk\sgrischagin\2021-11-29-sergej-AluKeil-5W\60kV\refs')
-    path_images = os.path.join(rf'\\132.187.193.8\junk\sgrischagin\2021-11-29-sergej-AluKeil-5W\60kV\{d}')
-    save_path = r'C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\man_evaluations\Thesis_Spectra'
+    path_darks = os.path.join(r'XXX')
+    path_refs = os.path.join(r'XXX')
+    path_images = os.path.join(rf'XXX')
+    save_path = r'XXX'
 
     refs = loader.load_stack(path=path_refs, stack_range=(0, 50))
     darks = loader.load_stack(path=path_darks, stack_range=(0, 50))
@@ -52,7 +52,7 @@ def eval():
 
 
 def plot_file():
-    data = np.genfromtxt(r'C:\Users\Sergej Grischagin\Desktop\final_evaluations\20220223_stepWedge\2022-2-23_SNR\60kV\SNR(u)_5W_60kV_texp0.37s_16mm.txt',
+    data = np.genfromtxt(r'XXX',
                          skip_header=3, delimiter=' ')
     x = data[:, 0]
     x = 1/(2*x)
@@ -68,7 +68,7 @@ def plot_file():
     plt.yscale('log')
     plt.tight_layout()
     plt.legend()
-    plt.savefig(r'C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\man_evaluations\Thesis_Spectra\test.pdf', dpi=600)
+    plt.savefig(r'XXX', dpi=600)
     plt.show()
 
 
