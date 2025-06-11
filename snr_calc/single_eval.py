@@ -13,10 +13,9 @@ def single():
     _dtype = '<u2'
     t_exp = 0.1
 
-    path_to_raw_data = r"C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\TEST_102kV_CT_SNR_AVG_compare\single_proj"
+    path_to_raw_data = r"XXX"
     _str = path_to_raw_data.split('Auswertung_MA\\')[1]
-    path_to_result = os.path.join(r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA', _str,
-                                  'EVALUATION_single_img_per_angle_22122021')
+    path_to_result = os.path.join(r'XXX')
     os.makedirs(path_to_result, exist_ok=True)
 
     img_shape = (1536, 1944)
@@ -29,8 +28,8 @@ def single():
     # view = (0, 0), *crop
     view = None
 
-    darks = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\TEST_102kV_CT_SNR_AVG_compare\darks'
-    refs = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\TEST_102kV_CT_SNR_AVG_compare\refs'
+    darks = r'XXX'
+    refs = r'XXX'
 
     ref_imgs = file.volume.Reader(refs, mode='raw', shape=img_shape, header=header, dtype=_dtype).load_all()
     dark_imgs = file.volume.Reader(darks, mode='raw', shape=img_shape, header=header, dtype=_dtype).load_all()
@@ -70,15 +69,14 @@ def avg():
     t_exp = 0.1
 
 
-    dirr = merging_multi_img_CT(path_ct=r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\TEST_102kV_CT_SNR_AVG_compare\four_proj',
-                                path_refs=r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\TEST_102kV_CT_SNR_AVG_compare\refs',
-                                path_darks=r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\TEST_102kV_CT_SNR_AVG_compare\darks',
+    dirr = merging_multi_img_CT(path_ct=r'XXX',
+                                path_refs=r'XXX',
+                                path_darks=r'XXX',
                                 )
 
-    path_to_raw_data = r"C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\TEST_102kV_CT_SNR_AVG_compare\single_proj"
+    path_to_raw_data = r"XXX"
     _str = path_to_raw_data.split('Auswertung_MA\\')[1]
-    path_to_result = os.path.join(r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA', _str,
-                                  'EVALUATION_single_img_per_angle_22122021')
+    path_to_result = os.path.join(r'XXX')
     os.makedirs(path_to_result, exist_ok=True)
 
     img_shape = (1536, 1944)
@@ -91,8 +89,8 @@ def avg():
     # view = (0, 0), *crop
     view = None
 
-    darks = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\TEST_102kV_CT_SNR_AVG_compare\darks'
-    refs = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\TEST_102kV_CT_SNR_AVG_compare\refs'
+    darks = r'XXX'
+    refs = r'XXX'
 
     ref_imgs = file.volume.Reader(refs, mode='raw', shape=img_shape, header=header, dtype=_dtype).load_all()
     dark_imgs = file.volume.Reader(darks, mode='raw', shape=img_shape, header=header, dtype=_dtype).load_all()
