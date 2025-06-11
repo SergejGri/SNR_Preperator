@@ -45,19 +45,19 @@ def man_SNR_eval_single():
     pixel_size = 4.0689
     pixel_size_units = '$\mu m$'
     nbins = 300
-    px_map = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR\BAD-PIXEL-bin1x1-scans-MetRIC.tif'
+    px_map = r'XXX'
 
     dirs = ['100kV']
     thicknesses = ['4u8']
     for dir in dirs:
         figure = None
         for d in thicknesses:
-            base_path = r'\\132.187.193.8\junk\sgrischagin\2021-09-21-Sergej_SNR-Stufenkeil_130proj_P1200P600MIX_6W'
+            base_path = r'XXX'
             path_to_data = os.path.join(base_path, dir, d)
             path_to_refs = os.path.join(base_path, dir, 'refs')
             path_to_darks = os.path.join(base_path, dir, 'darks')
             _str = base_path.split('sgrischagin\\')[1]
-            path_to_result = os.path.join(r'C:\Users\Sergej Grischagin\Desktop\Auswertung_SNR', _str)
+            path_to_result = os.path.join(r'XXX', _str)
             if not os.path.isdir(path_to_result):
                 os.makedirs(path_to_result)
 
