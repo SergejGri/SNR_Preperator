@@ -30,7 +30,7 @@ def CT_multi_img():
     angles = 50
     imgs_per_angle = 120
 
-    base_path = r'\\132.187.193.8\junk\sgrischagin\2021-12-14-sergej-CT-halbesPhantom-100ms-5W-M4p46\CT_102kV-optkv\test_imgs'
+    base_path = r'XXX'
     list_images = [f for f in os.listdir(base_path) if os.path.isfile(os.path.join(base_path, f))]
 
     images = sorted(list_images)
