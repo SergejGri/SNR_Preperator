@@ -12,7 +12,7 @@ def main():
 
     single_step = full_angle / projections
 
-    with open("\\132.187.193.8\junk\sgrischagin\ct_sequence_py.txt", "w") as f:
+    with open("XXX", "w") as f:
         f.write(os.path.join("wait", "\t", "all", "\n"))
         f.write(os.path.join("rot_object", "\t", "0", "\n"))
         f.write(os.path.join("wait", "\t", "all", "\n"))
