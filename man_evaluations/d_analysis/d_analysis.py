@@ -41,8 +41,8 @@ plt.rc('axes', prop_cycle=custom_cycler)
 
 def d_analysis():
     plt.rcParams["figure.figsize"] = (6.3, 7.1)
-    base_path = r'C:\Users\Sergej Grischagin\Desktop\Auswertung_MA\20220120_stepWedge\Karte\Kurven'
-    path_result = r'C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\man_evaluations\Karte_snr_kv_T'
+    base_path = r'XXX'
+    path_result = r'XXX'
     raw_mm = [0, 2, 4, 8, 12, 16, 20, 24, 28]
     kvs = [50, 60, 80, 90, 100, 120, 130, 150, 160, 180]
 
