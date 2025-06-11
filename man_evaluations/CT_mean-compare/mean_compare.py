@@ -42,7 +42,7 @@ def CT_mean_compare_full():
 
     plt.rc('lines', linewidth=2)
 
-    data_path = r"\\132.187.193.34\data\MetRIC\Data\2022\2022-02-28-sergej-Aluflakes\eval"
+    data_path = r"XXX"
     for dirname in os.listdir(data_path):
          if os.path.isdir(os.path.join(data_path, dirname)):
             for file in os.listdir(os.path.join(data_path, dirname)):
@@ -50,7 +50,7 @@ def CT_mean_compare_full():
                     orientation = dirname.split('-slice')[0]
                     slice = dirname.split('-')[1]
                     sv_name = rf'{orientation}-{slice}'
-                    sv_path = r'C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\man_evaluations\CT_mean-compare'
+                    sv_path = r'XXX'
 
 
                     data = np.genfromtxt(os.path.join(data_path, dirname, file), skip_header=1, delimiter=',')
@@ -81,12 +81,12 @@ def CT_mean_compare():
     plt.rc('lines', linewidth=2)
 
 
-    data_path1 = r"\\132.187.193.34\data\MetRIC\Data\2022\2022-02-28-sergej-Aluflakes\eval\KurzeSeite-slice130\KurzeSeite-slice130.csv"
-    data_path2 = r"\\132.187.193.34\data\MetRIC\Data\2022\2022-02-28-sergej-Aluflakes\eval\KurzeSeite-slice192\KurzeSeite-slice192.csv"
-    data_path3 = r"\\132.187.193.34\data\MetRIC\Data\2022\2022-02-28-sergej-Aluflakes\eval\KurzeSeite-slice987\KurzeSeite-slice987.csv"
+    data_path1 = r"XXX"
+    data_path2 = r"XXX"
+    data_path3 = r"XXX"
 
     sv_name = r'KurzeSeite'
-    sv_path = r'C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\man_evaluations\CT_mean-compare'
+    sv_path = r'XXX'
 
     data1 = np.genfromtxt(data_path1, skip_header=1, delimiter=',')
     data2 = np.genfromtxt(data_path2, skip_header=1, delimiter=',')
