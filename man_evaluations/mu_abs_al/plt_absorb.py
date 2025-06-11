@@ -37,23 +37,23 @@ def plot():
     plt.rc('axes', prop_cycle=(cycler('color', ['#0C5DA5', '#00B945', '#FF9500', '#FF2C00', '#845B97', '#474747', '#9e9e9e'])))
 
     density_AL = 2.7    #g/cm^3
-    data_tot = np.genfromtxt(r'C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\man_evaluations\mu_abs_al\nist_abs_data.txt', skip_header=3)
+    data_tot = np.genfromtxt(r'XXX', skip_header=3)
     x_tot = data_tot[:, 0]
     y_tot = data_tot[:, 1] * density_AL
 
-    data_photo_abs = np.genfromtxt(r'C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\man_evaluations\mu_abs_al\ph_abs.txt', skip_header=3)
+    data_photo_abs = np.genfromtxt(r'XXX', skip_header=3)
     x_ph_abs = data_photo_abs[:, 0]
     y_ph_abs = data_photo_abs[:, 1] * density_AL
 
 
-    data_pair = np.genfromtxt(r'C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\man_evaluations\mu_abs_al\pair_prod.txt', skip_header=3)
+    data_pair = np.genfromtxt(r'XXX', skip_header=3)
     x_pair = data_pair[:, 0]
     y_pair_1 = data_pair[:, 1] * density_AL
     y_pair_2 = data_pair[:, 2] * density_AL
     y_pair = y_pair_1 + y_pair_2
 
 
-    data_scatter = np.genfromtxt(r'C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\man_evaluations\mu_abs_al\scatter.txt', skip_header=3)
+    data_scatter = np.genfromtxt(r'XXX', skip_header=3)
     x_scatter = data_scatter[:, 0]
     y_scatter_1 = data_scatter[:, 1] * density_AL
     y_scatter_2 = data_scatter[:, 2] * density_AL
@@ -83,7 +83,7 @@ def plot():
     plt.yscale('log')
     plt.legend()
     plt.tight_layout()
-    plt.savefig(r'C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\man_evaluations\mu_abs_al\mu.pdf', bbox_inches='tight', dpi=600)
+    plt.savefig(r'XXX', bbox_inches='tight', dpi=600)
 
 
 plot()
