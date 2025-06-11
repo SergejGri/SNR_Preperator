@@ -8,8 +8,8 @@ def func():
     image_loader = ImageLoader(used_SCAP=True, remove_lines=False)
     EVA = SNR_Evaluator()
     filterer = ImageSeriesPixelArtifactFilterer()
-    path_data = r'\\132.187.193.8\junk\sgrischagin\2021-11-29-sergej-AluKeil-5W\60kV'
-    path_save = r'C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\man_evaluations\bad_vs_good_snr'
+    path_data = r'XXX'
+    path_save = r'XXX'
     view_good = slice(None, None), slice(450, 1650), slice(645, 888)
     view_bad = slice(None, None), slice(450, 1650), slice(250, 493)
     M = 15.8429
