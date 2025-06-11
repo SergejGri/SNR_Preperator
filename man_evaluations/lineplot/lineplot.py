@@ -35,9 +35,9 @@ def lineplot():
 
 
 
-    sv_path = r'C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\man_evaluations\lineplot'
+    sv_path = r'XXX'
 
-    data = np.genfromtxt(r"C:\Users\Sergej Grischagin\PycharmProjects\SNR_Preperator\man_evaluations\lineplot\Values_detektor_linie.csv", skip_header=1, delimiter=',')
+    data = np.genfromtxt(r"XXX", skip_header=1, delimiter=',')
 
     x = data[:, 0]
     y = data[:, 1]
