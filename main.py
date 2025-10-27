@@ -66,19 +66,14 @@ class ParamHolder:
             print(property, ":", value)
 
 
-
 def main():
     snr_evaluator = SNREvaluator(watt=5, magnification=15.8429, voltage=102, only_snr=False, ex_kvs=[140],
                                  ex_ds=[32], detector_pixel=74.8)
     snr_evaluator.evaluate_step_wedge(base_path=r'',
                                     result_path=r'')
 
-
-
     acti = Activator(attributes=ParamHolder())
     acti(create_plot=True, detailed=False)
-
-
 
 if __name__ == '__main__':
     main()
